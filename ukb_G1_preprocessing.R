@@ -8,6 +8,33 @@ setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
 ukb <- readRDS("ukb_G1_Raw.rds")
 
 ##############################################################################
+# Blood pressure cleanup + mean BP
+##############################################################################
+
+# remove extreme systolic values
+if ("sys_bp_automatic" %in% names(ukb)) {
+  ukb$sys_bp_automatic[ukb$sys_bp_automatic > 300] <- NA
+}
+
+if ("sbp_manual" %in% names(ukb)) {
+  ukb$sbp_manual[ukb$sbp_manual > 300] <- NA
+}
+
+# mean BP
+if (all(c("sys_bp_automatic","sbp_manual") %in% names(ukb))) {
+  ukb$sbp_mean <- rowMeans(cbind(ukb$sys_bp_automatic, ukb$sbp_manual), na.rm = TRUE)
+}
+
+if (all(c("dys_bp_automatic","dbp_manual") %in% names(ukb))) {
+  ukb$dbp_mean <- rowMeans(cbind(ukb$dys_bp_automatic, ukb$dbp_manual), na.rm = TRUE)
+}
+
+# quick checks
+if ("sys_bp_automatic" %in% names(ukb)) print(summary(ukb$sys_bp_automatic))
+if ("sbp_mean" %in% names(ukb)) print(summary(ukb$sbp_mean))
+if ("dbp_mean" %in% names(ukb)) print(summary(ukb$dbp_mean))
+
+##############################################################################
 # recode ethnicity -> 5 groups (White / South Asian / Chinese / Black / Other)
 # "Prefer not to answer" and "Do not know" -> missing (NA)
 ###############################################################################
