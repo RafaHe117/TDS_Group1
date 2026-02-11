@@ -1,0 +1,11 @@
+*.rds
+*.Rds
+*.csv
+*.xlsx
+*.xls
+*.png
+*.pdf
+.Rhistory
+.RData
+.DS_Store
+
