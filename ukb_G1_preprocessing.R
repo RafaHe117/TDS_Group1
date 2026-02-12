@@ -73,7 +73,7 @@ print(table(ukb$ethnicity, ukb$ethnicity_5cat, useNA = "ifany"))
 
 ##############################################################################
 # recode urban_rural -> 2 groups (Urban / Rural)
-# "Postcode not linkable" -> missing (NA)
+# Postcode not linkable -> missing (NA)
 ##############################################################################
 x <- ukb$urban_rural
 
