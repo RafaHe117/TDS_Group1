@@ -226,5 +226,210 @@ ukb <- recode_alcohol(ukb)
 print(table(ukb$alcohol_status, ukb$alcohol_freq, useNA = "always"))
 print(table(ukb$alcohol_combined, useNA = "ifany"))
 
+
+#################################YILIU########################################
+
+
+##############################################################################
+# recode had menopause (Field 2724) -> 2 groups (Yes / No) ；Indeterminate categories -> NA
+# Restrict to females; males set to NA
+# Menopause is strongly age-dependent.Age adjustment or stratification required in downstream models.
+##############################################################################
+
+recode_menopause <- function(df,
+                             var = "menopause",
+                             sex_var = "sex") {
+  
+  df$menopause_bin <- NA_character_
+  
+  # Define only among females
+  df$menopause_bin[df[[sex_var]] == "Female" & df[[var]] == "Yes"] <- "Yes"
+  df$menopause_bin[df[[sex_var]] == "Female" & df[[var]] == "No"]  <- "No"
+  
+  df$menopause_bin <- factor(df$menopause_bin,
+                             levels = c("No", "Yes"))
+  
+  df
+}
+
+ukb <- recode_menopause(ukb)
+
+# quick checks
+print(table(ukb$sex, ukb$menopause_bin, useNA = "ifany"))
+print(table(ukb$menopause, ukb$menopause_bin, useNA = "ifany"))
+
+##############################################################################
+# recode self-rated health (Field 2178) -> 2 groups (Good vs Poor)
+# "Prefer not to answer" and "Do not know" -> missing (NA)
+# Self-rated health may act as a mediator or collider
+##############################################################################
+
+recode_self_health <- function(df, var = "self_health_rating") {
+  
+  df$self_health_bin <- NA_character_
+  
+  df$self_health_bin[df[[var]] %in% c("Excellent", "Good")] <- "Good"
+  df$self_health_bin[df[[var]] %in% c("Fair", "Poor")]      <- "Poor"
+  
+  df$self_health_bin <- factor(df$self_health_bin,
+                               levels = c("Good", "Poor"))
+  
+  df
+}
+
+ukb <- recode_self_health(ukb)
+
+# quick checks
+print(table(ukb$self_health_bin, useNA = "ifany"))
+print(table(ukb$self_health_rating, ukb$self_health_bin, useNA = "ifany"))
+
+
+# NOTE:
+# Household structure is conceptually distinct from SES.
+# Household income will be used as primary socioeconomic indicator.
+
+##############################################################################
+# recode living with partner (Field 6141)
+# Define Yes if "Husband, wife or partner" ；Prefer not to answer -> NA
+##############################################################################
+
+recode_partner <- function(df, var = "household_relationship") {
+  
+  df$partner_status <- NA_character_
+  
+  # Yes
+  df$partner_status[df[[var]] == "Husband, wife or partner"] <- "Yes"
+  
+  # No (but exclude explicit non-response)
+  df$partner_status[df[[var]] != "Husband, wife or partner" &
+                      df[[var]] != "Prefer not to answer" &
+                      !is.na(df[[var]])] <- "No"
+  
+  df$partner_status <- factor(df$partner_status,
+                              levels = c("No", "Yes"))
+  
+  df
+}
+
+ukb <- recode_partner(ukb)
+
+# quick checks
+print(table(ukb$partner_status, useNA="ifany"))
+print(table(ukb$household_relationship,
+            ukb$partner_status,
+            useNA="ifany"))
+
+
+
+##############################################################################
+# Clean household_size (Field 709) - Create living_alone (1 vs >=2)
+# Convert to numeric ；Set special codes to NA (-9999, 999, etc.) ；Remove implausible values (>20)
+##############################################################################
+
+clean_household_size <- function(df, var = "household_size") {
+  
+  # 1️⃣ Convert to character first (in case factor)
+  x <- as.character(df[[var]])
+  
+  # 2️⃣ Set explicit missing strings to NA
+  x[x %in% c("Do not know",
+             "Prefer not to answer",
+             "",
+             "NA")] <- NA
+  
+  # 3️⃣ Convert to numeric
+  x_num <- suppressWarnings(as.numeric(x))
+  
+  # 4️⃣ Set known UKB missing codes to NA
+  x_num[x_num %in% c(-9999, -999, -1)] <- NA
+  
+  # 5️⃣ Remove implausible household sizes
+  # UKB typical max household size < 15
+  x_num[x_num > 20] <- NA
+  
+  # 6️⃣ Save cleaned variable
+  df$household_size_clean <- x_num
+  
+  # 7️⃣ Create living_alone
+  df$living_alone <- NA_character_
+  
+  df$living_alone[x_num == 1] <- "Yes"
+  df$living_alone[x_num >= 2] <- "No"
+  
+  df$living_alone <- factor(df$living_alone,
+                            levels = c("No", "Yes"))
+  
+  df
+}
+
+# Apply
+ukb <- clean_household_size(ukb)
+
+# QUICK CHECKS
+
+# Check distribution of cleaned size
+summary(ukb$household_size_clean)
+
+# Check frequency table
+table(ukb$household_size_clean, useNA = "ifany")
+
+# Check living alone
+table(ukb$living_alone, useNA = "ifany")
+
+# Cross-check
+table(ukb$household_size_clean, ukb$living_alone, useNA="ifany")
+
+
+############################################################
+# recode employment_status (Field 6142) -> 2 groups (In paid，Not in paid)
+# Exclude: Unable to work due to sickness/disability
+############################################################
+x <- ukb$employment_status
+
+emp2 <- case_when(
+  
+  # 1. Non-response
+  x %in% c("None of the above", "Prefer not to answer") ~ NA_character_,
+  
+  # 2. Exclusion group (tutor comment)
+  grepl("Unable to work", x, ignore.case = TRUE) ~ NA_character_,
+  
+  # 3. Priority group: In paid employment
+  grepl("In paid employment|self-employed", x, ignore.case = TRUE) 
+  ~ "In paid employment",
+  
+  # 4. Not in paid employment
+  grepl("Retired", x, ignore.case = TRUE) ~ "Not in paid employment",
+  grepl("Unemployed", x, ignore.case = TRUE) ~ "Not in paid employment",
+  grepl("Looking after home", x, ignore.case = TRUE) ~ "Not in paid employment",
+  grepl("Doing unpaid", x, ignore.case = TRUE) ~ "Not in paid employment",
+  grepl("student", x, ignore.case = TRUE) ~ "Not in paid employment",
+  
+  TRUE ~ NA_character_
+)
+
+ukb$employment_2cat <- factor(
+  emp2,
+  levels = c("Not in paid employment", "In paid employment")
+)
+
+# Quick checks
+print(table(ukb$employment_2cat, useNA = "ifany"))
+
+print(table(
+  ukb$employment_status,
+  ukb$employment_2cat,
+  useNA = "ifany"
+))
+
+
+
+
+
+
+
+
 # save
 saveRDS(ukb, "ukb_G1_preprocessed.rds")
+
+
