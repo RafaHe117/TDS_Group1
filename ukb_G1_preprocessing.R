@@ -275,6 +275,46 @@ print(verification_subset)
 
 rm(verification_subset)
 
+##############################################################################
+# Calculate mental health satisfaction score (mh_satis_mean_score)
+##############################################################################
+recode_mental_health <- function(df, 
+                                 happiness = "happiness", work = "work_satis", 
+                                 family = "family_satis", friend = "friend_satis", 
+                                 finance = "fin_satis") {
+  
+  cat_map <- c(
+    "Extremely unhappy" = 0, "I am not employed" = 0, 
+    "Very unhappy" = 1, "Moderately unhappy" = 2, "Moderately happy" = 3,
+    "Very happy" = 4, "Extremely happy" = 5, "Extremely happy/Other" = 6,
+    "Prefer not to answer" = NA, "Do not know" = NA
+  )
+
+  cat_matrix <- cbind(
+    cat_map[as.character(df[[happiness]])], 
+    cat_map[as.character(df[[work]])], 
+    cat_map[as.character(df[[family]])],
+    cat_map[as.character(df[[friend]])], 
+    cat_map[as.character(df[[finance]])]
+  )
+  
+  # Calculate how many questions each person answered
+  n_answered <- rowSums(!is.na(cat_matrix))
+  
+  df <- df %>%
+    mutate(
+      mh_n_answered = n_answered,
+      mh_satis_mean_score = ifelse(n_answered >= 4, rowMeans(cat_matrix, na.rm = TRUE), NA)
+    )
+  
+  return(df)
+}
+
+ukb <- recode_mental_health(ukb)
+
+table(ukb$mh_n_answered, is.na(ukb$mh_satis_mean_score), useNA = "always")
+
+
 #################################YILIU########################################
 
 
