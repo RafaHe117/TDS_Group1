@@ -29,14 +29,12 @@ if (all(c("dys_bp_automatic","dbp_manual") %in% names(ukb))) {
   ukb$dbp_mean <- rowMeans(cbind(ukb$dys_bp_automatic, ukb$dbp_manual), na.rm = TRUE)
 }
 
-# quick checks
 if ("sys_bp_automatic" %in% names(ukb)) print(summary(ukb$sys_bp_automatic))
 if ("sbp_mean" %in% names(ukb)) print(summary(ukb$sbp_mean))
 if ("dbp_mean" %in% names(ukb)) print(summary(ukb$dbp_mean))
 
 ##############################################################################
 # recode ethnicity -> 5 groups (White / South Asian / Chinese / Black / Other)
-# "Prefer not to answer" and "Do not know" -> missing (NA)
 ###############################################################################
 x <- ukb$ethnicity
 
@@ -67,13 +65,11 @@ eth5 <- case_when(
 
 ukb$ethnicity_5cat <- factor(eth5, levels = c("White", "South Asian", "Chinese", "Black", "Other"))
 
-# quick checks
 print(table(ukb$ethnicity_5cat, useNA = "ifany"))
 print(table(ukb$ethnicity, ukb$ethnicity_5cat, useNA = "ifany"))
 
 ##############################################################################
 # recode urban_rural -> 2 groups (Urban / Rural)
-# Postcode not linkable -> missing (NA)
 ##############################################################################
 x <- ukb$urban_rural
 
@@ -86,53 +82,42 @@ ur2 <- case_when(
 
 ukb$urban_rural_2cat <- factor(ur2, levels = c("Urban", "Rural"))
 
-# quick checks
 print(table(ukb$urban_rural_2cat, useNA = "ifany"))
 print(table(ukb$urban_rural, ukb$urban_rural_2cat, useNA = "ifany"))
 
 ##############################################################################
-# Air pollution cleanup (2010): remove NO, keep NO2; drop PM10, keep PM2.5
-# - set negative values to NA (no physical meaning)
+# Air pollution cleanup (2010)
 ##############################################################################
 
-# remove NO
 if ("no_2010" %in% names(ukb)) {
   ukb$no_2010 <- NULL
 }
 
-# clean NO2
 if ("no2_2010" %in% names(ukb)) {
   ukb$no2_2010[ukb$no2_2010 < 0] <- NA
 }
 
-# clean PM2.5
 if ("pm2_5_2010" %in% names(ukb)) {
   ukb$pm2_5_2010[ukb$pm2_5_2010 < 0] <- NA
 }
 
-# clean PM10
 if ("pm10_2010" %in% names(ukb)) {
   ukb$pm10_2010[ukb$pm10_2010 < 0] <- NA
 }
 
-# quick check
 if ("no2_2010" %in% names(ukb)) print(summary(ukb$no2_2010))
 if ("pm2_5_2010" %in% names(ukb)) print(summary(ukb$pm2_5_2010))
 if ("pm10_2010" %in% names(ukb)) print(summary(ukb$pm10_2010))
 
 ##############################################################################
 # Greenspace / Water / Noise cleanup (1000m + 24h)
-# - greenspace_pct_1000m and water_pct_1000m: negative values -> NA
-# - greenspace_pct_1000m: >100 -> NA (percent out of range)
 ##############################################################################
 
-# greenspace (%)
 if ("greenspace_pct_1000m" %in% names(ukb)) {
   ukb$greenspace_pct_1000m[ukb$greenspace_pct_1000m < 0] <- NA
   ukb$greenspace_pct_1000m[ukb$greenspace_pct_1000m > 100] <- NA
 }
 
-# water (%)
 if ("water_pct_1000m" %in% names(ukb)) {
   ukb$water_pct_1000m[ukb$water_pct_1000m < 0] <- NA
 }
@@ -142,19 +127,13 @@ if ("noise_24h" %in% names(ukb)) {
   print(summary(ukb$noise_24h))
 }
 
-# quick checks
 if ("greenspace_pct_1000m" %in% names(ukb)) print(summary(ukb$greenspace_pct_1000m))
 if ("water_pct_1000m" %in% names(ukb)) print(summary(ukb$water_pct_1000m))
 
 ##############################################################################
 # Biomarker cleanup
-# - keep blood_sample_attempted as factor (metadata)
-# - drop urine_device (no variation)
-# - convert biomarker strings to numeric
-# - set negative values to NA (UKB special codes)
 ##############################################################################
 
-# metadata
 if ("blood_sample_attempted" %in% names(ukb)) {
   ukb$blood_sample_attempted <- factor(ukb$blood_sample_attempted)
   print(table(ukb$blood_sample_attempted, useNA = "ifany"))
@@ -165,7 +144,6 @@ if ("urine_device" %in% names(ukb)) {
   if (length(unique(na.omit(ukb$urine_device))) <= 1) ukb$urine_device <- NULL
 }
 
-# biomarker columns (numeric)
 biomarkers_num <- c(
   "sodium_in_urine","creatinine","microalbumin",
   "wbc_count","rbc_count","hemoglobin","mcv","platelet_count","mpv",
@@ -180,18 +158,44 @@ biomarkers_num <- c(
 
 biomarkers_num <- biomarkers_num[biomarkers_num %in% names(ukb)]
 
-# convert character -> numeric
 for (v in biomarkers_num) {
   if (is.character(ukb[[v]])) ukb[[v]] <- as.numeric(ukb[[v]])
 }
 
-# negative values -> NA
 for (v in biomarkers_num) {
   if (is.numeric(ukb[[v]])) ukb[[v]][ukb[[v]] < 0] <- NA
 }
 
-# quick checks
 print(sapply(biomarkers_num, function(v) mean(is.na(ukb[[v]]))))
+
+##############################################################################
+# Lipid cleanup (keep LDL + HDL only)
+##############################################################################
+
+lipid_vars_keep <- c("ldl_cholesterol", "hdl_cholesterol")
+
+lipid_vars_keep <- lipid_vars_keep[lipid_vars_keep %in% names(ukb)]
+
+for (v in lipid_vars_keep) {
+  if (is.character(ukb[[v]])) {
+    ukb[[v]] <- as.numeric(ukb[[v]])
+  }
+}
+
+for (v in lipid_vars_keep) {
+  ukb[[v]][ukb[[v]] < 0] <- NA
+}
+
+lipid_vars_drop <- c("cholesterol", "apolipoprotein_b")
+
+lipid_vars_drop <- lipid_vars_drop[lipid_vars_drop %in% names(ukb)]
+
+if (length(lipid_vars_drop) > 0) {
+  ukb <- ukb[, !names(ukb) %in% lipid_vars_drop]
+}
+
+if ("ldl_cholesterol" %in% names(ukb)) print(summary(ukb$ldl_cholesterol))
+if ("hdl_cholesterol" %in% names(ukb)) print(summary(ukb$hdl_cholesterol))
 
 ##############################################################################
 # recode education -> education_2
