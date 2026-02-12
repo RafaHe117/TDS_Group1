@@ -95,19 +95,30 @@ print(table(ukb$urban_rural, ukb$urban_rural_2cat, useNA = "ifany"))
 # - set negative values to NA (no physical meaning)
 ##############################################################################
 
-# NO2: keep, set negatives to NA
-ukb$no2_2010[ukb$no2_2010 < 0] <- NA
+# remove NO
+if ("no_2010" %in% names(ukb)) {
+  ukb$no_2010 <- NULL
+}
 
-# NO: drop (highly collinear with NO2)
-if ("no_2010" %in% names(ukb)) ukb$no_2010 <- NULL
+# clean NO2
+if ("no2_2010" %in% names(ukb)) {
+  ukb$no2_2010[ukb$no2_2010 < 0] <- NA
+}
 
-# PM2.5: keep
-# PM10: drop (moderate correlation with PM2.5; not averaged)
-if ("pm10_2010" %in% names(ukb)) ukb$pm10_2010 <- NULL
+# clean PM2.5
+if ("pm2_5_2010" %in% names(ukb)) {
+  ukb$pm2_5_2010[ukb$pm2_5_2010 < 0] <- NA
+}
 
-# quick checks
+# clean PM10
+if ("pm10_2010" %in% names(ukb)) {
+  ukb$pm10_2010[ukb$pm10_2010 < 0] <- NA
+}
+
+# quick check
 if ("no2_2010" %in% names(ukb)) print(summary(ukb$no2_2010))
 if ("pm2_5_2010" %in% names(ukb)) print(summary(ukb$pm2_5_2010))
+if ("pm10_2010" %in% names(ukb)) print(summary(ukb$pm10_2010))
 
 ##############################################################################
 # Greenspace / Water / Noise cleanup (1000m + 24h)
