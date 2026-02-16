@@ -354,8 +354,8 @@ recode_alcohol <- function(df, alcohol_status = "alcohol_status", alcohol_freq =
   df <- df %>%
     mutate(alcohol_combined = case_when(
       .data[[alcohol_status]] == "Never" & .data[[alcohol_freq]] == "Never" ~ "Never",
-      .data[[alcohol_status]] == "Never" & .data[[alcohol_freq]] != "Never" ~ NA_character_,
-      .data[[alcohol_status]] != "Never" & .data[[alcohol_freq]] == "Never" ~ NA_character_,
+      .data[[alcohol_status]] == "Never" & .data[[alcohol_freq]] != "Never" ~ "Never",
+      .data[[alcohol_status]] != "Never" & .data[[alcohol_freq]] == "Never" ~ "Never",
       TRUE ~ paste(.data[[alcohol_status]], .data[[alcohol_freq]], sep = ": ")
     ))
   
