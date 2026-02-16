@@ -293,6 +293,36 @@ if ("birth_weight" %in% names(ukb)) {
 }
 
 ##############################################################################
+# Extract the highest qualification -> education
+##############################################################################
+highest_edu <- function(df, edu_col_base = "education") {
+  
+  edu_levels <- c(
+    "Prefer not to answer",
+    "None of the above",
+    "CSEs or equivalent",
+    "O levels/GCSEs or equivalent",
+    "A levels/AS levels or equivalent",
+    "NVQ or HND or HNC or equivalent",
+    "Other professional qualifications eg: nursing, teaching",
+    "College or University degree"
+  )
+  
+  naming_pattern <- paste0("^", edu_col_base, "\\.0\\.[0-5]$")
+  edu_cols <- grep(naming_pattern, names(df), value = TRUE)
+  
+  temp_df <- df[edu_cols]
+  temp_df[] <- lapply(temp_df, factor, levels = edu_levels, ordered = TRUE)
+  
+  df$education <- do.call(pmax, c(temp_df, na.rm = TRUE))
+  
+  return(df)
+}
+
+ukb <- highest_edu(ukb)
+print(table(ukb$education, useNA = "ifany"))
+
+##############################################################################
 # recode education -> education_2
 ##############################################################################
 recode_edu <- function(df, edu_col_name = "education") {
