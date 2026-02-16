@@ -212,13 +212,11 @@ if ("bipolar_depression_status" %in% names(ukb)) {
 }
 
 ##############################################################################
-# Major life events (past 2 years) -> Stress (binary + cumulative count)
+# Major life events (past 2 years) -> Stress (count + 3-level group)
 ##############################################################################
 iibs_vars <- grep("^iibs_2yr\\.0\\.", names(ukb), value = TRUE)
 
 noninfo <- c("Prefer not to answer")
-non_event <- c("None of the above")
-
 event_terms <- c(
   "Serious illness, injury or assault to yourself",
   "Serious illness, injury or assault of a close relative",
@@ -234,21 +232,21 @@ if (length(iibs_vars) > 0) {
   
   stress_count <- apply(iibs_mat, 1, function(row) {
     row <- row[!row %in% noninfo]
-    if (length(row) == 0) return(NA_integer_)      # all PNA
-    sum(row %in% event_terms)                      # only count true events
+    if (length(row) == 0) return(NA_integer_)   # all PNA
+    sum(row %in% event_terms)
   })
   
   ukb$stress_count_2yr <- stress_count
   
-  ukb$stress_any_2yr <- factor(
+  ukb$stress_group_2yr <- factor(
     ifelse(is.na(stress_count), NA,
-           ifelse(stress_count > 0, 1, 0)),
-    levels = c(0, 1),
-    labels = c("No", "Yes")
+           ifelse(stress_count <= 2, "0–2",
+                  ifelse(stress_count <= 4, "3–4", "5–6"))),
+    levels = c("0–2", "3–4", "5–6")
   )
   
-  print(table(ukb$stress_any_2yr, useNA = "ifany"))
   print(table(ukb$stress_count_2yr, useNA = "ifany"))
+  print(table(ukb$stress_group_2yr, useNA = "ifany"))
 }
 
 ##############################################################################
