@@ -340,7 +340,8 @@ recode_edu <- function(df, edu_col_name = "education") {
                                            "Other professional qualifications eg: nursing, teaching")] <- ">15Yrs"
   
   df$education_2 <- factor(df$education_2, levels = c("10-11Yrs", "12-14Yrs", ">15Yrs"))
-  df
+  
+  return(df)
 }
 
 ukb <- recode_edu(ukb)
@@ -359,7 +360,7 @@ recode_alcohol <- function(df, alcohol_status = "alcohol_status", alcohol_freq =
       TRUE ~ paste(.data[[alcohol_status]], .data[[alcohol_freq]], sep = ": ")
     ))
   
-  df
+  return(df)
 }
 
 ukb <- recode_alcohol(ukb)
@@ -367,15 +368,37 @@ print(table(ukb$alcohol_status, ukb$alcohol_freq, useNA = "always"))
 print(table(ukb$alcohol_combined, useNA = "ifany"))
 
 ##############################################################################
+# Bin average weekly red wine consumption
+##############################################################################
+bin_redwine <- function(df, redwine_consumption = "redwine") {
+  df <- df %>%
+    mutate(
+      redwine = as.numeric(redwine),
+      
+      redwine_group = case_when(
+        is.na(redwine) ~ NA_character_,
+        redwine == 0 ~ "Non-drinker",
+        redwine >= 1 & redwine <= 14 ~ "Light drinker",
+        redwine >= 15 & redwine <= 21 ~ "Moderate drinker",
+        redwine >= 22 ~ "Heavy drinker"
+      ),
+    
+      redwine_group = factor(redwine_group, levels = c("Non-drinker", "Light drinker", 
+                                                         "Moderate drinker", "Heavy drinker"), ordered = TRUE)
+    )
+}
+
+ukb <- bin_redwine(ukb)
+print(table(ukb$redwine_group, useNA = "always"))
+tapply(ukb$redwine, ukb$redwine_group, summary)
+
+##############################################################################
 # Calculate Saturated Fat (sf_score)
 ##############################################################################
 recode_saturated_fat <- function(df, 
-                                 beef_freq = "beef", 
-                                 lamb_freq = "lamb", 
-                                 pork_freq = "pork", 
-                                 proc_freq = "processed_meat_intake", 
-                                 cheese_freq = "cheese", 
-                                 milk_type = "milk") {
+                                 beef_freq = "beef", lamb_freq = "lamb", 
+                                 pork_freq = "pork", proc_freq = "processed_meat_intake", 
+                                 cheese_freq = "cheese", milk_type = "milk") {
   
   freq_map <- c(
     "Never"=0, "Less than once a week"=1, "Once a week"=2,
@@ -389,15 +412,49 @@ recode_saturated_fat <- function(df,
   
   meat_weights <- c("beef"=6.34, "lamb"=3.49, "pork"=6.28, "proc"=7.67, "cheese"=19.2)
   
+  max_vals <- c(
+    beef = unname(meat_weights["beef"]) * 5, 
+    lamb = unname(meat_weights["lamb"]) * 5,
+    pork = unname(meat_weights["pork"]) * 5, 
+    proc = unname(meat_weights["proc"]) * 5,
+    cheese = unname(meat_weights["cheese"]) * 5, 
+    milk = 1.9
+  )
+  
+  # Total maximum possible score if all 6 items were maxed out
+  total_max <- sum(max_vals)
+  
   df <- df %>%
+    # Calculate individual component scores
     mutate(
-      sf_score = (meat_weights["beef"] * freq_map[as.character(df[[beef_freq]])]) +
-        (meat_weights["lamb"] * freq_map[as.character(df[[lamb_freq]])]) +
-        (meat_weights["pork"] * freq_map[as.character(df[[pork_freq]])]) +
-        (meat_weights["proc"] * freq_map[as.character(df[[proc_freq]])]) +
-        (meat_weights["cheese"] * freq_map[as.character(df[[cheese_freq]])]) +
-        (milk_weights[as.character(df[[milk_type]])])
-    )
+      beef_val = unname(meat_weights["beef"]) * freq_map[as.character(.data[[beef_freq]])],
+      lamb_val = unname(meat_weights["lamb"]) * freq_map[as.character(.data[[lamb_freq]])],
+      pork_val = unname(meat_weights["pork"]) * freq_map[as.character(.data[[pork_freq]])],
+      proc_val = unname(meat_weights["proc"]) * freq_map[as.character(.data[[proc_freq]])],
+      cheese_val = unname(meat_weights["cheese"]) * freq_map[as.character(.data[[cheese_freq]])],
+      milk_val = milk_weights[as.character(.data[[milk_type]])]
+    ) %>%
+    
+    mutate(
+      n_valid = rowSums(!is.na(cbind(beef_val, lamb_val, pork_val, proc_val, cheese_val, milk_val))),
+      
+      # Sum the valid components
+      sum_achieved = rowSums(cbind(beef_val, lamb_val, pork_val, proc_val, cheese_val, milk_val), na.rm = TRUE),
+      
+      # Sum the maximum theoretical scores only for the questions the participant answered
+      sum_max_possible = 
+        (max_vals["beef"] * !is.na(beef_val)) +
+        (max_vals["lamb"] * !is.na(lamb_val)) +
+        (max_vals["pork"] * !is.na(pork_val)) +
+        (max_vals["proc"] * !is.na(proc_val)) +
+        (max_vals["cheese"] * !is.na(cheese_val)) +
+        (max_vals["milk"] * !is.na(milk_val)),
+    
+      sf_score = if_else(n_valid >= 3, (sum_achieved / sum_max_possible) * total_max, NA_real_)
+    ) %>%
+    
+    # Remove the calculation columns
+    select(-ends_with("_val"), -n_valid, -sum_achieved, -sum_max_possible)
   
   return(df)
 }
@@ -407,7 +464,6 @@ ukb <- recode_saturated_fat(ukb)
 summary(ukb$sf_score)
 
 verification_subset <- ukb %>%
-  # filter(!is.na(sf_score)) %>%
   select(beef, lamb, pork, processed_meat_intake, cheese, milk, sf_score) %>%
   head(20)
 
