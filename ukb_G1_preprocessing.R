@@ -270,6 +270,25 @@ if ("gp_anxiety_depression" %in% names(ukb)) {
 }
 
 ##############################################################################
+# Diabetes diagnosed -> binary
+##############################################################################
+if ("diabetes_diagnosed" %in% names(ukb)) {
+  
+  ukb$diabetes_bin <- ifelse(
+    ukb$diabetes_diagnosed == "Yes", 1,
+    ifelse(ukb$diabetes_diagnosed == "No", 0, NA)
+  )
+  
+  ukb$diabetes_bin <- factor(
+    ukb$diabetes_bin,
+    levels = c(0, 1),
+    labels = c("No", "Yes")
+  )
+  
+  print(table(ukb$diabetes_bin, useNA = "ifany"))
+}
+
+##############################################################################
 # Birth weight -> clean using UKB plausible range (0.45–10 kg)
 ##############################################################################
 
@@ -293,34 +312,110 @@ if ("birth_weight" %in% names(ukb)) {
 }
 
 ##############################################################################
-# Extract the highest qualification -> education
+# TV duration -> numeric + group
 ##############################################################################
-highest_edu <- function(df, edu_col_base = "education") {
+
+if ("tv_duration" %in% names(ukb)) {
   
-  edu_levels <- c(
-    "Prefer not to answer",
-    "None of the above",
-    "CSEs or equivalent",
-    "O levels/GCSEs or equivalent",
-    "A levels/AS levels or equivalent",
-    "NVQ or HND or HNC or equivalent",
-    "Other professional qualifications eg: nursing, teaching",
-    "College or University degree"
+  noninfo <- c("Do not know", "Prefer not to answer")
+  
+  tv_raw <- as.character(ukb$tv_duration)
+  tv_raw[tv_raw %in% noninfo] <- NA
+  tv_num <- ifelse(tv_raw == "Less than an hour a day", 0.5, tv_raw)
+  tv_num <- suppressWarnings(as.numeric(tv_num))
+  tv_num[tv_num < 0 | tv_num > 24] <- NA
+  
+  ukb$tv_hours_day <- tv_num
+  
+  ukb$tv_group <- factor(
+    ifelse(is.na(tv_num), NA,
+           ifelse(tv_num < 1, "<1h",
+                  ifelse(tv_num <= 3, "1–3h",
+                         ifelse(tv_num <= 5, "3–5h", ">5h")))),
+    levels = c("<1h", "1–3h", "3–5h", ">5h")
   )
   
-  naming_pattern <- paste0("^", edu_col_base, "\\.0\\.[0-5]$")
-  edu_cols <- grep(naming_pattern, names(df), value = TRUE)
-  
-  temp_df <- df[edu_cols]
-  temp_df[] <- lapply(temp_df, factor, levels = edu_levels, ordered = TRUE)
-  
-  df$education <- do.call(pmax, c(temp_df, na.rm = TRUE))
-  
-  return(df)
+  print(table(ukb$tv_group, useNA = "ifany"))
 }
 
-ukb <- highest_edu(ukb)
-print(table(ukb$education, useNA = "ifany"))
+##############################################################################
+# Total MET minutes weekly -> cleaned + group
+##############################################################################
+
+if ("total_met_minutes_weekly" %in% names(ukb)) {
+  
+  met_clean <- ukb$total_met_minutes_weekly
+  met_clean[met_clean < 0] <- NA_real_
+  
+  ukb$total_met_min_wk <- met_clean
+  
+  q <- quantile(met_clean, probs = c(1/3, 2/3), na.rm = TRUE, type = 2)
+  
+  ukb$total_met_group <- factor(
+    ifelse(is.na(met_clean), NA,
+           ifelse(met_clean <= q[1], "Low",
+                  ifelse(met_clean <= q[2], "Moderate", "High"))),
+    levels = c("Low", "Moderate", "High")
+  )
+  
+  print(table(ukb$total_met_group, useNA = "ifany"))
+}
+
+##############################################################################
+# Sleep quality score (duration + insomnia + snoring)
+##############################################################################
+tmp <- ukb$sleep_duration
+tmp[tmp %in% c("Do not know", "Prefer not to answer")] <- NA
+sleep_num <- as.numeric(tmp)
+
+sleep_num[sleep_num < 1 | sleep_num > 23] <- NA
+
+sleep_duration_pt <- ifelse(
+  is.na(sleep_num), NA_integer_,
+  ifelse(sleep_num %in% c(7, 8), 1L, 0L)
+)
+
+insomnia_pt <- ifelse(
+  ukb$insomnia == "Never/rarely", 2L,
+  ifelse(ukb$insomnia == "Sometimes", 1L,
+         ifelse(ukb$insomnia == "Usually", 0L, NA_integer_))
+)
+
+snoring_pt <- ifelse(
+  ukb$snoring == "No", 1L,
+  ifelse(ukb$snoring == "Yes", 0L, NA_integer_)
+)
+
+pt_mat <- cbind(sleep_duration_pt, insomnia_pt, snoring_pt)
+n_obs  <- rowSums(!is.na(pt_mat))
+
+ukb$sleep_quality_score <- ifelse(
+  n_obs < 2, NA_integer_,
+  rowSums(pt_mat, na.rm = TRUE)
+)
+
+print(summary(ukb$sleep_quality_score))
+print(table(ukb$sleep_quality_score, useNA = "ifany"))
+
+##############################################################################
+# Smoking -> combined 3-level variable & drop others
+##############################################################################
+
+if ("smoking_status" %in% names(ukb)) {
+  
+  smk <- ukb$smoking_status
+  smk[smk == "Prefer not to answer"] <- NA
+  
+  ukb$smoking_3cat <- factor(
+    smk,
+    levels = c("Never", "Previous", "Current")
+  )
+  
+  print(table(ukb$smoking_3cat, useNA = "ifany"))
+  
+  ukb <- ukb[, !names(ukb) %in% 
+               c("pack_years_smoked", "cigarettes_per_day_prev")]
+}
 
 ##############################################################################
 # recode education -> education_2
@@ -355,8 +450,8 @@ recode_alcohol <- function(df, alcohol_status = "alcohol_status", alcohol_freq =
   df <- df %>%
     mutate(alcohol_combined = case_when(
       .data[[alcohol_status]] == "Never" & .data[[alcohol_freq]] == "Never" ~ "Never",
-      .data[[alcohol_status]] == "Never" & .data[[alcohol_freq]] != "Never" ~ "Never",
-      .data[[alcohol_status]] != "Never" & .data[[alcohol_freq]] == "Never" ~ "Never",
+      .data[[alcohol_status]] == "Never" & .data[[alcohol_freq]] != "Never" ~ NA_character_,
+      .data[[alcohol_status]] != "Never" & .data[[alcohol_freq]] == "Never" ~ NA_character_,
       TRUE ~ paste(.data[[alcohol_status]], .data[[alcohol_freq]], sep = ": ")
     ))
   
@@ -370,10 +465,19 @@ print(table(ukb$alcohol_combined, useNA = "ifany"))
 ##############################################################################
 # Bin average weekly red wine consumption
 ##############################################################################
+<<<<<<< HEAD
 bin_redwine <- function(df, redwine_consumption = "redwine") {
   df <- df %>%
     mutate(
       redwine = as.numeric(redwine),
+=======
+
+bin_redwine <- function(df, redwine_consumption = "redwine") {
+  
+  df <- df %>%
+    mutate(
+      redwine = as.numeric(.data[[redwine_consumption]]),
+>>>>>>> c0cb9c4ebe75f5e1f58953fda4739475d7307b6d
       
       redwine_group = case_when(
         is.na(redwine) ~ NA_character_,
@@ -381,6 +485,7 @@ bin_redwine <- function(df, redwine_consumption = "redwine") {
         redwine >= 1 & redwine <= 14 ~ "Light drinker",
         redwine >= 15 & redwine <= 21 ~ "Moderate drinker",
         redwine >= 22 ~ "Heavy drinker"
+<<<<<<< HEAD
       ),
     
       redwine_group = factor(redwine_group, levels = c("Non-drinker", "Light drinker", 
@@ -389,6 +494,23 @@ bin_redwine <- function(df, redwine_consumption = "redwine") {
 }
 
 ukb <- bin_redwine(ukb)
+=======
+      )
+    )
+  
+  df$redwine_group <- factor(
+    df$redwine_group,
+    levels = c("Non-drinker", "Light drinker",
+               "Moderate drinker", "Heavy drinker"),
+    ordered = TRUE
+  )
+  
+  return(df)
+}
+
+ukb <- bin_redwine(ukb)
+
+>>>>>>> c0cb9c4ebe75f5e1f58953fda4739475d7307b6d
 print(table(ukb$redwine_group, useNA = "always"))
 tapply(ukb$redwine, ukb$redwine_group, summary)
 
