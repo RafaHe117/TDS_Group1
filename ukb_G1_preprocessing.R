@@ -418,6 +418,36 @@ if ("smoking_status" %in% names(ukb)) {
 }
 
 ##############################################################################
+# Extract the highest qualification -> education
+##############################################################################
+highest_edu <- function(df, edu_col_base = "education") {
+  
+  edu_levels <- c(
+    "Prefer not to answer",
+    "None of the above",
+    "CSEs or equivalent",
+    "O levels/GCSEs or equivalent",
+    "A levels/AS levels or equivalent",
+    "NVQ or HND or HNC or equivalent",
+    "Other professional qualifications eg: nursing, teaching",
+    "College or University degree"
+  )
+  
+  naming_pattern <- paste0("^", edu_col_base, "\\.0\\.[0-5]$")
+  edu_cols <- grep(naming_pattern, names(df), value = TRUE)
+  
+  temp_df <- df[edu_cols]
+  temp_df[] <- lapply(temp_df, factor, levels = edu_levels, ordered = TRUE)
+  
+  df$education <- do.call(pmax, c(temp_df, na.rm = TRUE))
+  
+  return(df)
+}
+
+ukb <- highest_edu(ukb)
+print(table(ukb$education, useNA = "ifany"))
+
+##############################################################################
 # recode education -> education_2
 ##############################################################################
 recode_edu <- function(df, edu_col_name = "education") {
@@ -465,19 +495,11 @@ print(table(ukb$alcohol_combined, useNA = "ifany"))
 ##############################################################################
 # Bin average weekly red wine consumption
 ##############################################################################
-<<<<<<< HEAD
-bin_redwine <- function(df, redwine_consumption = "redwine") {
-  df <- df %>%
-    mutate(
-      redwine = as.numeric(redwine),
-=======
-
 bin_redwine <- function(df, redwine_consumption = "redwine") {
   
   df <- df %>%
     mutate(
       redwine = as.numeric(.data[[redwine_consumption]]),
->>>>>>> c0cb9c4ebe75f5e1f58953fda4739475d7307b6d
       
       redwine_group = case_when(
         is.na(redwine) ~ NA_character_,
@@ -485,32 +507,16 @@ bin_redwine <- function(df, redwine_consumption = "redwine") {
         redwine >= 1 & redwine <= 14 ~ "Light drinker",
         redwine >= 15 & redwine <= 21 ~ "Moderate drinker",
         redwine >= 22 ~ "Heavy drinker"
-<<<<<<< HEAD
-      ),
-    
-      redwine_group = factor(redwine_group, levels = c("Non-drinker", "Light drinker", 
-                                                         "Moderate drinker", "Heavy drinker"), ordered = TRUE)
-    )
-}
-
-ukb <- bin_redwine(ukb)
-=======
       )
     )
   
-  df$redwine_group <- factor(
-    df$redwine_group,
-    levels = c("Non-drinker", "Light drinker",
-               "Moderate drinker", "Heavy drinker"),
-    ordered = TRUE
-  )
-  
+  df$redwine_group <- factor(df$redwine_group, levels = c("Non-drinker", "Light drinker", 
+                                                          "Moderate drinker", "Heavy drinker"), ordered = TRUE)
   return(df)
 }
 
 ukb <- bin_redwine(ukb)
 
->>>>>>> c0cb9c4ebe75f5e1f58953fda4739475d7307b6d
 print(table(ukb$redwine_group, useNA = "always"))
 tapply(ukb$redwine, ukb$redwine_group, summary)
 
