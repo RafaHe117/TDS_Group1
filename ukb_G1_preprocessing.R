@@ -110,7 +110,7 @@ if ("pm2_5_2010" %in% names(ukb)) print(summary(ukb$pm2_5_2010))
 if ("pm10_2010" %in% names(ukb)) print(summary(ukb$pm10_2010))
 
 ##############################################################################
-# Greenspace / Water / Noise cleanup (1000m + 24h)
+# Greenspace / Noise cleanup (1000m + 24h)
 ##############################################################################
 
 if ("greenspace_pct_1000m" %in% names(ukb)) {
@@ -118,22 +118,16 @@ if ("greenspace_pct_1000m" %in% names(ukb)) {
   ukb$greenspace_pct_1000m[ukb$greenspace_pct_1000m > 100] <- NA
 }
 
-if ("water_pct_1000m" %in% names(ukb)) {
-  ukb$water_pct_1000m[ukb$water_pct_1000m < 0] <- NA
-}
-
-# noise_24h (no cleaning needed based on your summary, but keep a quick check)
 if ("noise_24h" %in% names(ukb)) {
-  print(summary(ukb$noise_24h))
+  ukb$noise_24h[ukb$noise_24h < 0] <- NA
 }
 
 if ("greenspace_pct_1000m" %in% names(ukb)) print(summary(ukb$greenspace_pct_1000m))
-if ("water_pct_1000m" %in% names(ukb)) print(summary(ukb$water_pct_1000m))
+if ("noise_24h" %in% names(ukb)) print(summary(ukb$noise_24h))
 
 ##############################################################################
 # Biomarker cleanup
 ##############################################################################
-
 if ("blood_sample_attempted" %in% names(ukb)) {
   ukb$blood_sample_attempted <- factor(ukb$blood_sample_attempted)
   print(table(ukb$blood_sample_attempted, useNA = "ifany"))
@@ -153,7 +147,8 @@ biomarkers_num <- c(
   "aspartate_aminotransferase","direct_bilirubin","urea","calcium",
   "cystatin_c","glucose","hba1c","igf_1","phosphate",
   "total_bilirubin","total_blood_protein","total_triglyceride",
-  "urate","blood_vitamin_d","crp","lipoprotein_a"
+  "urate","blood_vitamin_d","crp","lipoprotein_a",
+  "ldl_cholesterol","hdl_cholesterol"
 )
 
 biomarkers_num <- biomarkers_num[biomarkers_num %in% names(ukb)]
@@ -167,35 +162,137 @@ for (v in biomarkers_num) {
 }
 
 print(sapply(biomarkers_num, function(v) mean(is.na(ukb[[v]]))))
+print(lapply(biomarkers_num, function(v) summary(ukb[[v]])))
 
 ##############################################################################
-# Lipid cleanup (keep LDL + HDL only)
+# Family history (father / mother / sibling) -> first-degree CVD (binary)
+##############################################################################
+fam_vars <- grep("^(father|mother|sibling)_illness\\.0\\.", names(ukb), value = TRUE)
+
+noninfo <- c(
+  "Do not know (group 1)", "Do not know (group 2)",
+  "Prefer not to answer (group 1)", "Prefer not to answer (group 2)"
+)
+
+cvd_terms <- c("Heart disease", "Stroke")
+
+if (length(fam_vars) > 0) {
+  fam_mat <- sapply(fam_vars, function(v) as.character(ukb[[v]]))
+  fam_mat[fam_mat %in% noninfo] <- NA
+  
+  famhx_cvd <- apply(fam_mat, 1, function(row) {
+    row <- row[!is.na(row)]
+    if (length(row) == 0) return(NA_integer_)
+    if (any(row %in% cvd_terms)) return(1L)
+    0L
+  })
+  
+  ukb$famhx_cvd <- factor(famhx_cvd, levels = c(0, 1), labels = c("No", "Yes"))
+  print(table(ukb$famhx_cvd, useNA = "ifany"))
+}
+
+##############################################################################
+# Bipolar / Depression -> Mood disorder (binary)
 ##############################################################################
 
-lipid_vars_keep <- c("ldl_cholesterol", "hdl_cholesterol")
-
-lipid_vars_keep <- lipid_vars_keep[lipid_vars_keep %in% names(ukb)]
-
-for (v in lipid_vars_keep) {
-  if (is.character(ukb[[v]])) {
-    ukb[[v]] <- as.numeric(ukb[[v]])
-  }
+if ("bipolar_depression_status" %in% names(ukb)) {
+  
+  ukb$mood_disorder <- ifelse(
+    ukb$bipolar_depression_status == "No Bipolar or Depression",
+    0, 1
+  )
+  
+  ukb$mood_disorder <- factor(
+    ukb$mood_disorder,
+    levels = c(0, 1),
+    labels = c("No", "Yes")
+  )
+  
+  print(table(ukb$mood_disorder, useNA = "ifany"))
 }
 
-for (v in lipid_vars_keep) {
-  ukb[[v]][ukb[[v]] < 0] <- NA
+##############################################################################
+# Major life events (past 2 years) -> Stress (binary + cumulative count)
+##############################################################################
+iibs_vars <- grep("^iibs_2yr\\.0\\.", names(ukb), value = TRUE)
+
+noninfo <- c("Prefer not to answer")
+non_event <- c("None of the above")
+
+event_terms <- c(
+  "Serious illness, injury or assault to yourself",
+  "Serious illness, injury or assault of a close relative",
+  "Death of a close relative",
+  "Death of a spouse or partner",
+  "Marital separation/divorce",
+  "Financial difficulties"
+)
+
+if (length(iibs_vars) > 0) {
+  
+  iibs_mat <- sapply(iibs_vars, function(v) as.character(ukb[[v]]))
+  
+  stress_count <- apply(iibs_mat, 1, function(row) {
+    row <- row[!row %in% noninfo]
+    if (length(row) == 0) return(NA_integer_)      # all PNA
+    sum(row %in% event_terms)                      # only count true events
+  })
+  
+  ukb$stress_count_2yr <- stress_count
+  
+  ukb$stress_any_2yr <- factor(
+    ifelse(is.na(stress_count), NA,
+           ifelse(stress_count > 0, 1, 0)),
+    levels = c(0, 1),
+    labels = c("No", "Yes")
+  )
+  
+  print(table(ukb$stress_any_2yr, useNA = "ifany"))
+  print(table(ukb$stress_count_2yr, useNA = "ifany"))
 }
 
-lipid_vars_drop <- c("cholesterol", "apolipoprotein_b")
+##############################################################################
+# GP anxiety / depression -> binary
+##############################################################################
 
-lipid_vars_drop <- lipid_vars_drop[lipid_vars_drop %in% names(ukb)]
-
-if (length(lipid_vars_drop) > 0) {
-  ukb <- ukb[, !names(ukb) %in% lipid_vars_drop]
+if ("gp_anxiety_depression" %in% names(ukb)) {
+  
+  ukb$gp_anxdep <- ifelse(
+    ukb$gp_anxiety_depression == "Yes", 1,
+    ifelse(ukb$gp_anxiety_depression == "No", 0, NA)
+  )
+  
+  ukb$gp_anxdep <- factor(
+    ukb$gp_anxdep,
+    levels = c(0,1),
+    labels = c("No","Yes")
+  )
+  
+  print(table(ukb$gp_anxdep, useNA = "ifany"))
 }
 
-if ("ldl_cholesterol" %in% names(ukb)) print(summary(ukb$ldl_cholesterol))
-if ("hdl_cholesterol" %in% names(ukb)) print(summary(ukb$hdl_cholesterol))
+##############################################################################
+# Birth weight -> clean using UKB plausible range (0.45–10 kg)
+##############################################################################
+
+if ("birth_weight" %in% names(ukb)) {
+  
+  ukb$birth_weight_clean <- ukb$birth_weight
+  
+  ukb$birth_weight_clean[
+    ukb$birth_weight_clean < 0.45 | ukb$birth_weight_clean > 10
+  ] <- NA
+  
+  cat("\nBirth weight (raw):\n")
+  print(summary(ukb$birth_weight))
+  
+  cat("\nBirth weight (clean, 0.45–10kg):\n")
+  print(summary(ukb$birth_weight_clean))
+  
+  cat("\nN set to NA by cleaning:",
+      sum(is.na(ukb$birth_weight_clean)) - sum(is.na(ukb$birth_weight)),
+      "\n")
+}
 
 ##############################################################################
 # recode education -> education_2
@@ -329,10 +426,6 @@ ukb <- recode_mental_health(ukb)
 
 table(ukb$mh_n_answered, is.na(ukb$mh_satis_mean_score), useNA = "always")
 
-
-#################################YILIU########################################
-
-
 ##############################################################################
 # recode had menopause (Field 2724) -> 2 groups (Yes / No) ；Indeterminate categories -> NA
 # Restrict to females; males set to NA
@@ -421,8 +514,6 @@ print(table(ukb$partner_status, useNA="ifany"))
 print(table(ukb$household_relationship,
             ukb$partner_status,
             useNA="ifany"))
-
-
 
 ##############################################################################
 # Clean household_size (Field 709) - Create living_alone (1 vs >=2)
