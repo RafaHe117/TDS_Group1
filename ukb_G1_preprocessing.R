@@ -828,8 +828,8 @@ emp2 <- case_when(
 
 ukb$employment_2cat <- factor(
   emp2,
-  levels = c("Not in paid employment", "In paid employment")
-)
+  levels = c("Not in paid employment", "In paid employment"))
+
 
 # Quick checks
 print(table(ukb$employment_2cat, useNA = "ifany"))
@@ -841,13 +841,190 @@ print(table(
 ))
 
 
+# =================================================================
+# Cleaning night shift variable
+# INPUTS:
+#   - ukb : job_shift_work, employment_status
+#
+# OUTPUT:
+#  - job_shift_work_clean : factor version, non-informative values = NA, 
+#                           including only participants who are employed
+#   - ever_nights : (OPTIONAL, commented out) simplified binary version of 
+#       night shift work
+# =================================================================
+
+# 1) Cleaning by setting non-informative values to NA
+
+ukb <- ukb %>%
+  mutate(
+    job_shift_work_clean = as.character(job_shift_work),
+    job_shift_work_clean = ifelse(
+      job_shift_work_clean %in% c("Prefer not to answer", "Do not know"),
+      NA_character_,
+      job_shift_work_clean
+    ),
+    
+# 2) Only employed participants should have exposure values, other set to NA
+    job_shift_work_clean = ifelse(
+      employment_status == "In paid employment or self-employed",
+      job_shift_work_clean,
+      NA_character_
+    ),
+    
+# 3) Convert final result to factor
+    job_shift_work_clean = factor(job_shift_work_clean)
+  )
+
+
+# ------------------------------------------------------------
+# OPTION: Simplify to a binary indicator ever_nights
+# ------------------------------------------------------------
+# ukb <- ukb %>%
+#   mutate(
+#     ever_nights = case_when(
+#       is.na(job_shift_work_clean) ~ NA,
+#       job_shift_work_clean == "Never/rarely" ~ 0,
+#       TRUE ~ 1
+#     )
+#   )
 
 
 
+# ============================================================
+# Weekly work hours cleaning + unified categorical variable
+# INPUTS:
+#   - work_hours_week : exact hours/week (numeric)
+#   - work_hours_cat  : categorical hours/week
+#
+# Outputs added to ukb:
+#   - work_hours_week_clean  : exact hours with values < 0 recoded to NA
+#   - work_hours_unified_cat : FINAL variable used for analysis/imputation
+#       ("15–<20", "20–<30", "30–40", ">40") as an ordered factor, including only currently employed participants
+# ============================================================
+
+# 1) Cleaning exact hours: UKB negative codes -> NA
+ukb <- ukb %>%
+  mutate(
+    work_hours_week_clean = if_else(work_hours_week < 0, NA_real_, work_hours_week)
+  )
+
+# 2) Recode lumped categories to match final bins
+ukb <- ukb %>%
+  mutate(
+    work_hours_cat_clean = case_when(
+      as.character(work_hours_cat) == "15 to less-than-20 hours" ~ "15–<20",
+      as.character(work_hours_cat) == "20 to less-than-30 hours" ~ "20–<30",
+      as.character(work_hours_cat) == "30 to 40 hours"           ~ "30–40",
+      as.character(work_hours_cat) == "Over 40 hours"            ~ ">40",
+      TRUE ~ NA_character_
+    )
+  )
+
+# 3) Bin exact hours into same categories
+ukb <- ukb %>%
+  mutate(
+    work_hours_exact_binned = case_when(
+      !is.na(work_hours_week_clean) & work_hours_week_clean < 20  ~ "15–<20",
+      !is.na(work_hours_week_clean) & work_hours_week_clean < 30  ~ "20–<30",
+      !is.na(work_hours_week_clean) & work_hours_week_clean <= 40 ~ "30–40",
+      !is.na(work_hours_week_clean) & work_hours_week_clean > 40  ~ ">40",
+      TRUE ~ NA_character_
+    )
+  )
+
+# 4) FINAL unified variable: prioritise exact (binned), else lumped;
+#        ONLY for people in paid employment/self-employment
+ukb <- ukb %>%
+  mutate(
+    work_hours_unified_cat = case_when(
+      employment_status == "In paid employment or self-employed" &
+        !is.na(work_hours_exact_binned) ~ work_hours_exact_binned,
+
+      employment_status == "In paid employment or self-employed" &
+        is.na(work_hours_exact_binned) &
+        !is.na(work_hours_cat_clean) ~ work_hours_cat_clean,
+
+      TRUE ~ NA_character_
+    ),
+
+    work_hours_unified_cat = factor(
+      work_hours_unified_cat,
+      levels = c("15–<20", "20–<30", "30–40", ">40"),
+      ordered = TRUE
+    )
+  )
+
+
+#  5) DROP intermediate columns to avoid confusion ----
+ukb <- ukb %>% select(-work_hours_cat_clean, -work_hours_exact_binned)
+
+
+
+# ============================================================
+# IMD cleaning and Assignment via Decision Tree
+# INPUTS
+#   - Columns (raw IMD): imd_england, imd_scotland, imd_wales
+#
+# OUTPUTS (new columns added to ukb)
+#   - imd_final   : single IMD score per participant using precedence rule
+#                  England -> Scotland -> Wales -> NA if all missing
+#   - imd_source  : which nation IMD was used to create imd_final
+#   - imd_quintile: quintile based on imd_final (computed on non-missing)
+#
+#==========================================================
+
+# 1) Replace invalid values: set any IMD value < 0 to NA
+
+ukb <- ukb %>%
+  mutate(
+    across(
+      c(imd_england, imd_scotland, imd_wales),
+      ~ ifelse(.x < 0, NA_real_, .x)
+    )
+  )
+
+
+# 2) Decision-tree assignment England -> Scotland -> Wales -> NA
+
+ukb <- ukb %>%
+  mutate(
+    imd_final = coalesce(imd_england, imd_scotland, imd_wales),
+    # Track which IMD was used
+    imd_source = case_when(
+      !is.na(imd_england)  ~ "England",
+      is.na(imd_england) & !is.na(imd_scotland) ~ "Scotland",
+      is.na(imd_england) & is.na(imd_scotland) & !is.na(imd_wales) ~ "Wales",
+      TRUE ~ NA_character_
+    )
+  )
+
+# QC table: counts + percentages of which source was used (including missing)
+imd_source_qc <- ukb %>%
+  count(imd_source) %>%
+  mutate(
+    percent = percent(n / sum(n), accuracy = 0.1)
+  )
+
+print(imd_source_qc)
+
+
+# 3) Create quintiles for comparability
+
+ukb <- ukb %>%
+  mutate(
+    imd_quintile = ifelse(
+      is.na(imd_final),
+      NA_integer_,
+      ntile(imd_final, 5)
+    ),
+    # Transform to ordered factor
+    imd_quintile = factor(imd_quintile, levels = 1:5, ordered = TRUE)
+  )
 
 
 
 # save
 saveRDS(ukb, "ukb_G1_preprocessed.rds")
+
 
 
