@@ -605,22 +605,34 @@ rm(verification_subset)
 recode_mental_health <- function(df, 
                                  happiness = "happiness", work = "work_satis", 
                                  family = "family_satis", friend = "friend_satis", 
-                                 finance = "fin_satis") {
+                                 finance = "fin_satis", employment_col_base = "employment_status") {
   
   cat_map <- c(
-    "Extremely unhappy" = 0, "I am not employed" = 0, 
+    "Extremely unhappy" = 0, "I am not employed" = NA, 
     "Very unhappy" = 1, "Moderately unhappy" = 2, "Moderately happy" = 3,
     "Very happy" = 4, "Extremely happy" = 5, "Extremely happy/Other" = 6,
     "Prefer not to answer" = NA, "Do not know" = NA
   )
 
   cat_matrix <- cbind(
-    cat_map[as.character(df[[happiness]])], 
-    cat_map[as.character(df[[work]])], 
-    cat_map[as.character(df[[family]])],
-    cat_map[as.character(df[[friend]])], 
-    cat_map[as.character(df[[finance]])]
+    happiness = cat_map[as.character(df[[happiness]])], 
+    work      = cat_map[as.character(df[[work]])], 
+    family    = cat_map[as.character(df[[family]])],
+    friend    = cat_map[as.character(df[[friend]])], 
+    finance   = cat_map[as.character(df[[finance]])]
   )
+  
+  # Extract the employment status columns
+  employment_col <- grep(paste0("^", employment_col_base), names(df), value = TRUE)
+  employment_matrix <- as.matrix(df[, employment_col])
+  
+  # Check unemployed or retired
+  is_retired <- rowSums(employment_matrix == "Retired", na.rm = TRUE) > 0
+  is_unemployed <- rowSums(employment_matrix == "Unemployed", na.rm = TRUE) > 0
+  
+  # Overwrite the work score for unemployed and for retired
+  cat_matrix[is_retired, "work"] <- 3
+  cat_matrix[is_unemployed, "work"] <- 0
   
   # Calculate how many questions each person answered
   n_answered <- rowSums(!is.na(cat_matrix))
@@ -628,7 +640,7 @@ recode_mental_health <- function(df,
   df <- df %>%
     mutate(
       mh_n_answered = n_answered,
-      mh_satis_mean_score = ifelse(n_answered >= 4, rowMeans(cat_matrix, na.rm = TRUE), NA)
+      mh_satis_mean_score = ifelse(n_answered >= 3, rowMeans(cat_matrix, na.rm = TRUE), NA)
     )
   
   return(df)
