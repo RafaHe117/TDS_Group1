@@ -462,6 +462,40 @@ print(table(ukb$alcohol_status, ukb$alcohol_freq, useNA = "always"))
 print(table(ukb$alcohol_combined, useNA = "ifany"))
 
 ##############################################################################
+# Bin average weekly red wine consumption
+##############################################################################
+
+bin_redwine <- function(df, redwine_consumption = "redwine") {
+  
+  df <- df %>%
+    mutate(
+      redwine = as.numeric(.data[[redwine_consumption]]),
+      
+      redwine_group = case_when(
+        is.na(redwine) ~ NA_character_,
+        redwine == 0 ~ "Non-drinker",
+        redwine >= 1 & redwine <= 14 ~ "Light drinker",
+        redwine >= 15 & redwine <= 21 ~ "Moderate drinker",
+        redwine >= 22 ~ "Heavy drinker"
+      )
+    )
+  
+  df$redwine_group <- factor(
+    df$redwine_group,
+    levels = c("Non-drinker", "Light drinker",
+               "Moderate drinker", "Heavy drinker"),
+    ordered = TRUE
+  )
+  
+  return(df)
+}
+
+ukb <- bin_redwine(ukb)
+
+print(table(ukb$redwine_group, useNA = "always"))
+tapply(ukb$redwine, ukb$redwine_group, summary)
+
+##############################################################################
 # Calculate Saturated Fat (sf_score)
 ##############################################################################
 recode_saturated_fat <- function(df, 
