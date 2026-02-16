@@ -340,7 +340,8 @@ recode_edu <- function(df, edu_col_name = "education") {
                                            "Other professional qualifications eg: nursing, teaching")] <- ">15Yrs"
   
   df$education_2 <- factor(df$education_2, levels = c("10-11Yrs", "12-14Yrs", ">15Yrs"))
-  df
+  
+  return(df)
 }
 
 ukb <- recode_edu(ukb)
@@ -359,12 +360,37 @@ recode_alcohol <- function(df, alcohol_status = "alcohol_status", alcohol_freq =
       TRUE ~ paste(.data[[alcohol_status]], .data[[alcohol_freq]], sep = ": ")
     ))
   
-  df
+  return(df)
 }
 
 ukb <- recode_alcohol(ukb)
 print(table(ukb$alcohol_status, ukb$alcohol_freq, useNA = "always"))
 print(table(ukb$alcohol_combined, useNA = "ifany"))
+
+##############################################################################
+# Bin average weekly red wine consumption
+##############################################################################
+bin_redwine <- function(df, redwine_consumption = "redwine") {
+  df <- df %>%
+    mutate(
+      redwine = as.numeric(redwine),
+      
+      redwine_group = case_when(
+        is.na(redwine) ~ NA_character_,
+        redwine == 0 ~ "Non-drinker",
+        redwine >= 1 & redwine <= 14 ~ "Light drinker",
+        redwine >= 15 & redwine <= 21 ~ "Moderate drinker",
+        redwine >= 22 ~ "Heavy drinker"
+      ),
+    
+      redwine_group = factor(redwine_group, levels = c("Non-drinker", "Light drinker", 
+                                                         "Moderate drinker", "Heavy drinker"), ordered = TRUE)
+    )
+}
+
+ukb <- bin_redwine(ukb)
+print(table(ukb$redwine_group, useNA = "always"))
+tapply(ukb$redwine, ukb$redwine_group, summary)
 
 ##############################################################################
 # Calculate Saturated Fat (sf_score)
