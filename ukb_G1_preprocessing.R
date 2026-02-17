@@ -712,32 +712,41 @@ print(table(ukb$self_health_rating, ukb$self_health_bin, useNA = "ifany"))
 # recode living with partner (Field 6141)
 # Define Yes if "Husband, wife or partner" ；Prefer not to answer -> NA
 ##############################################################################
+# identify columns
+cols_hr <- grep("household_relationship", colnames(ukb), value = TRUE)
 
-recode_partner <- function(df, var = "household_relationship") {
+# construct living_with_partner
+ukb$living_with_partner <- apply(ukb[, cols_hr], 1, function(x) {
   
-  df$partner_status <- NA_character_
+  # Yes: any column equals partner
+  if (any(x == "Husband, wife or partner")) {
+    return("Yes")
+  }
   
-  # Yes
-  df$partner_status[df[[var]] == "Husband, wife or partner"] <- "Yes"
+  # NA: all columns are Prefer not to answer
+  if (all(x == "Prefer not to answer")) {
+    return(NA)
+  }
   
-  # No (but exclude explicit non-response)
-  df$partner_status[df[[var]] != "Husband, wife or partner" &
-                      df[[var]] != "Prefer not to answer" &
-                      !is.na(df[[var]])] <- "No"
+  # No: no partner but at least one real response
+  if (!any(x == "Husband, wife or partner") &&
+      any(x != "Prefer not to answer")) {
+    return("No")
+  }
   
-  df$partner_status <- factor(df$partner_status,
-                              levels = c("No", "Yes"))
-  
-  df
-}
+  return(NA)
+})
 
-ukb <- recode_partner(ukb)
+# convert to factor
+ukb$living_with_partner <- factor(
+  ukb$living_with_partner,
+  levels = c("No", "Yes")
+)
 
-# quick checks
-print(table(ukb$partner_status, useNA="ifany"))
-print(table(ukb$household_relationship,
-            ukb$partner_status,
-            useNA="ifany"))
+# quick check
+table(ukb$living_with_partner, useNA = "ifany")
+
+
 
 ##############################################################################
 # Clean household_size (Field 709) - Create living_alone (1 vs >=2)
@@ -800,45 +809,64 @@ table(ukb$household_size_clean, ukb$living_alone, useNA="ifany")
 
 ############################################################
 # recode employment_status (Field 6142) -> 2 groups (In paid，Not in paid)
-# Exclude: Unable to work due to sickness/disability
+#For each row of 7 columns:
+#If "In paid employment or self-employed" appears → In paid employment
+#Otherwise, if any "true state" appears (Retired / Unemployed / Student / Looking after home / Doing unpaid work, etc.) → Not in paid employment
+#Otherwise, if the only true state is Unable → NA
+#Otherwise (all are None of the above / Prefer not / NA) → NA
+#Note: Here, Unable is treated as a state to be excluded/not included in category 2, and NA is only triggered if it is the only true state; once paid is present, paid overrides it.
 ############################################################
-x <- ukb$employment_status
+# Identify employment columns
+cols_emp <- grep("employment_status", colnames(ukb), value = TRUE)
 
-emp2 <- case_when(
-  
-  # 1. Non-response
-  x %in% c("None of the above", "Prefer not to answer") ~ NA_character_,
-  
-  # 2. Exclusion group (tutor comment)
-  grepl("Unable to work", x, ignore.case = TRUE) ~ NA_character_,
-  
-  # 3. Priority group: In paid employment
-  grepl("In paid employment|self-employed", x, ignore.case = TRUE) 
-  ~ "In paid employment",
-  
-  # 4. Not in paid employment
-  grepl("Retired", x, ignore.case = TRUE) ~ "Not in paid employment",
-  grepl("Unemployed", x, ignore.case = TRUE) ~ "Not in paid employment",
-  grepl("Looking after home", x, ignore.case = TRUE) ~ "Not in paid employment",
-  grepl("Doing unpaid", x, ignore.case = TRUE) ~ "Not in paid employment",
-  grepl("student", x, ignore.case = TRUE) ~ "Not in paid employment",
-  
-  TRUE ~ NA_character_
+paid_value   <- "In paid employment or self-employed"
+unable_value <- "Unable to work because of sickness or disability"
+nonresp_vals <- c("None of the above", "Prefer not to answer")
+
+ukb$employment_2cat <- apply(
+  ukb[, cols_emp, drop = FALSE],
+  1,
+  function(x) {
+    
+    x <- as.character(x)
+    x_non_na <- x[!is.na(x)]
+    
+    # 1) In paid takes absolute precedence (even if also selected "Unable")
+    if (paid_value %in% x_non_na) {
+      return("In paid employment")
+    }
+    
+    # Remove non-response values for determining "real" status
+    real_status <- x_non_na[!x_non_na %in% nonresp_vals]
+    
+    # 2) If ONLY unable remains -> NA
+    if (length(real_status) > 0 && all(real_status == unable_value)) {
+      return(NA_character_)
+    }
+    
+    # 3) Any other real status (retired/unemployed/student/etc.) -> Not in paid
+    if (length(real_status) > 0) {
+      # real_status contains at least one non-unable value here
+      return("Not in paid employment")
+    }
+    
+    # 4) All non-response / missing
+    return(NA_character_)
+  }
 )
 
+# Convert to factor (reference = Not in paid)
 ukb$employment_2cat <- factor(
-  emp2,
-  levels = c("Not in paid employment", "In paid employment"))
-
+  ukb$employment_2cat,
+  levels = c("Not in paid employment", "In paid employment")
+)
 
 # Quick checks
 print(table(ukb$employment_2cat, useNA = "ifany"))
 
-print(table(
-  ukb$employment_status,
-  ukb$employment_2cat,
-  useNA = "ifany"
-))
+# Optional sanity check vs first instance
+print(table(ukb$employment_status.0.0, ukb$employment_2cat, useNA = "ifany"))
+
 
 
 # =================================================================
