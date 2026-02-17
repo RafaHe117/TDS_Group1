@@ -712,41 +712,32 @@ print(table(ukb$self_health_rating, ukb$self_health_bin, useNA = "ifany"))
 # recode living with partner (Field 6141)
 # Define Yes if "Husband, wife or partner" ；Prefer not to answer -> NA
 ##############################################################################
-# identify columns
-cols_hr <- grep("household_relationship", colnames(ukb), value = TRUE)
 
-# construct living_with_partner
-ukb$living_with_partner <- apply(ukb[, cols_hr], 1, function(x) {
+recode_partner <- function(df, var = "household_relationship") {
   
-  # Yes: any column equals partner
-  if (any(x == "Husband, wife or partner")) {
-    return("Yes")
-  }
+  df$partner_status <- NA_character_
   
-  # NA: all columns are Prefer not to answer
-  if (all(x == "Prefer not to answer")) {
-    return(NA)
-  }
+  # Yes
+  df$partner_status[df[[var]] == "Husband, wife or partner"] <- "Yes"
   
-  # No: no partner but at least one real response
-  if (!any(x == "Husband, wife or partner") &&
-      any(x != "Prefer not to answer")) {
-    return("No")
-  }
+  # No (but exclude explicit non-response)
+  df$partner_status[df[[var]] != "Husband, wife or partner" &
+                      df[[var]] != "Prefer not to answer" &
+                      !is.na(df[[var]])] <- "No"
   
-  return(NA)
-})
+  df$partner_status <- factor(df$partner_status,
+                              levels = c("No", "Yes"))
+  
+  df
+}
 
-# convert to factor
-ukb$living_with_partner <- factor(
-  ukb$living_with_partner,
-  levels = c("No", "Yes")
-)
+ukb <- recode_partner(ukb)
 
-# quick check
-table(ukb$living_with_partner, useNA = "ifany")
-
-
+# quick checks
+print(table(ukb$partner_status, useNA="ifany"))
+print(table(ukb$household_relationship,
+            ukb$partner_status,
+            useNA="ifany"))
 
 ##############################################################################
 # Clean household_size (Field 709) - Create living_alone (1 vs >=2)
@@ -809,64 +800,45 @@ table(ukb$household_size_clean, ukb$living_alone, useNA="ifany")
 
 ############################################################
 # recode employment_status (Field 6142) -> 2 groups (In paid，Not in paid)
-#For each row of 7 columns:
-#If "In paid employment or self-employed" appears → In paid employment
-#Otherwise, if any "true state" appears (Retired / Unemployed / Student / Looking after home / Doing unpaid work, etc.) → Not in paid employment
-#Otherwise, if the only true state is Unable → NA
-#Otherwise (all are None of the above / Prefer not / NA) → NA
-#Note: Here, Unable is treated as a state to be excluded/not included in category 2, and NA is only triggered if it is the only true state; once paid is present, paid overrides it.
+# Exclude: Unable to work due to sickness/disability
 ############################################################
-# Identify employment columns
-cols_emp <- grep("employment_status", colnames(ukb), value = TRUE)
+x <- ukb$employment_status
 
-paid_value   <- "In paid employment or self-employed"
-unable_value <- "Unable to work because of sickness or disability"
-nonresp_vals <- c("None of the above", "Prefer not to answer")
-
-ukb$employment_2cat <- apply(
-  ukb[, cols_emp, drop = FALSE],
-  1,
-  function(x) {
-    
-    x <- as.character(x)
-    x_non_na <- x[!is.na(x)]
-    
-    # 1) In paid takes absolute precedence (even if also selected "Unable")
-    if (paid_value %in% x_non_na) {
-      return("In paid employment")
-    }
-    
-    # Remove non-response values for determining "real" status
-    real_status <- x_non_na[!x_non_na %in% nonresp_vals]
-    
-    # 2) If ONLY unable remains -> NA
-    if (length(real_status) > 0 && all(real_status == unable_value)) {
-      return(NA_character_)
-    }
-    
-    # 3) Any other real status (retired/unemployed/student/etc.) -> Not in paid
-    if (length(real_status) > 0) {
-      # real_status contains at least one non-unable value here
-      return("Not in paid employment")
-    }
-    
-    # 4) All non-response / missing
-    return(NA_character_)
-  }
+emp2 <- case_when(
+  
+  # 1. Non-response
+  x %in% c("None of the above", "Prefer not to answer") ~ NA_character_,
+  
+  # 2. Exclusion group (tutor comment)
+  grepl("Unable to work", x, ignore.case = TRUE) ~ NA_character_,
+  
+  # 3. Priority group: In paid employment
+  grepl("In paid employment|self-employed", x, ignore.case = TRUE) 
+  ~ "In paid employment",
+  
+  # 4. Not in paid employment
+  grepl("Retired", x, ignore.case = TRUE) ~ "Not in paid employment",
+  grepl("Unemployed", x, ignore.case = TRUE) ~ "Not in paid employment",
+  grepl("Looking after home", x, ignore.case = TRUE) ~ "Not in paid employment",
+  grepl("Doing unpaid", x, ignore.case = TRUE) ~ "Not in paid employment",
+  grepl("student", x, ignore.case = TRUE) ~ "Not in paid employment",
+  
+  TRUE ~ NA_character_
 )
 
-# Convert to factor (reference = Not in paid)
 ukb$employment_2cat <- factor(
-  ukb$employment_2cat,
-  levels = c("Not in paid employment", "In paid employment")
-)
+  emp2,
+  levels = c("Not in paid employment", "In paid employment"))
+
 
 # Quick checks
 print(table(ukb$employment_2cat, useNA = "ifany"))
 
-# Optional sanity check vs first instance
-print(table(ukb$employment_status.0.0, ukb$employment_2cat, useNA = "ifany"))
-
+print(table(
+  ukb$employment_status,
+  ukb$employment_2cat,
+  useNA = "ifany"
+))
 
 
 # =================================================================
@@ -1048,6 +1020,261 @@ ukb <- ukb %>%
     # Transform to ordered factor
     imd_quintile = factor(imd_quintile, levels = 1:5, ordered = TRUE)
   )
+
+#==========================================================================================
+# Pre-processing (Medication categories, oral contraception, HRT, ICD Co-morbidities)
+#==========================================================================================
+# 1. Number of Medication Categories (0, 1-2, >=3)
+ukb <- ukb %>%
+  mutate(
+    medication_category = case_when(
+      total_medications == 0     ~ "0",
+      total_medications %in% 1:2 ~ "1-2",
+      total_medications >= 3     ~ ">=3",
+      TRUE                       ~ NA_character_
+    ),
+    medication_category = factor(
+      medication_category, 
+      levels = c("0", "1-2", ">=3")
+    )
+  )
+
+
+# 2. Oral Contraception
+## Set male results all to "No", then "Prefer not to answer" and "Do not know" to NA
+ukb <- ukb %>%
+mutate(
+    oral_contraception = as.character(oral_contraception),
+    oral_contraception = case_when(
+      sex == "Male" ~ "No",
+      oral_contraception == "Prefer not to answer" ~ NA_character_,
+      oral_contraception == "Do not know"           ~ NA_character_,
+      TRUE                                          ~ oral_contraception
+    ),
+        oral_contraception = as.factor(oral_contraception)
+  )
+
+table(ukb$sex, ukb$oral_contraception, useNA = "always")
+
+
+# 3. HRT
+## Set male results all to "No", then "Prefer not to answer" and "Do not know" to NA
+ukb <- ukb %>%
+mutate(
+    hrt = as.character(hrt),
+    hrt = case_when(
+      sex == "Male" ~ "No",
+      hrt == "Prefer not to answer" ~ NA_character_,
+      hrt == "Do not know"           ~ NA_character_,
+      TRUE                                          ~ hrt
+    ),
+        hrt = as.factor(hrt)
+  )
+
+table(ukb$sex, ukb$hrt, useNA = "always")
+
+
+
+# 4. Coding Presence of ICD Comorbidities
+## 4a. ICD Comorbidity Codes
+
+Diabetes_ICD_10 <- c("E10", "E11","E12", "E13", "E14")
+Diabetes_ICD_9 <- c("250")
+
+Lipidemia_ICD_10 <- c("E78")
+Lipidemia_ICD_9 <- c("272")
+
+Mental_Health_ICD_10 <- c("F20", "F31", "F32")
+Mental_Health_ICD_9 <- c("231", "296", "298", "311")
+
+Migraine_ICD_10 <- c("G43")
+Migraine_ICD_9 <- c("346")
+
+Hypertension_ICD_10 <- c("I10")
+Hypertension_ICD_9 <- c("401")
+
+AF_ICD_10 <- c("I48")
+AF_ICD_9<- c("42731", "42732")
+
+Atopy_ICD_10 <- c("J30", "J45", "L20")
+Atopy_ICD_9 <- c("477", "493", "691")
+
+Autoimmune_ICD_10 <- c("L23", "L40", "L93", "L95", "M05", "M06")
+Autoimmune_ICD_9 <- c("692", "695", "696", "709", "714")
+
+CKD_ICD_10 <- c("N18")
+CKD_ICD_9<- c("585")
+
+## 4b. ICD Comorbidity Code Checking Function
+
+check_icd <- function(df, icd10_list, icd9_list) {
+  res <- df %>%
+    transmute(
+      flag = if_any(
+        c(starts_with("primary_diagnoses_icd10.0."), starts_with("secondary_diagnoses_icd10.0.")),
+        ~ substr(as.character(.), 1, 3) %in% icd10_list
+      ) | 
+      if_any(
+        c(starts_with("primary_diagnoses_icd9.0."), starts_with("secondary_diagnoses_icd9.0.")),
+        ~ substr(as.character(.), 1, 3) %in% icd9_list
+      )
+    )
+  return(as.integer(res$flag))
+}
+
+
+## 4c. Apply ICD Comorbidity Code Checking Function
+ukb <- ukb %>%
+  mutate(
+    ICD_Diabetes      = check_icd(., Diabetes_ICD_10, Diabetes_ICD_9),
+    ICD_Lipidemia      = check_icd(., Lipidemia_ICD_10, Lipidemia_ICD_9),
+    ICD_Mental_Health  = check_icd(., Mental_Health_ICD_10, Mental_Health_ICD_9),
+    ICD_Migraine       = check_icd(., Migraine_ICD_10, Migraine_ICD_9),
+    ICD_Hypertension   = check_icd(., Hypertension_ICD_10, Hypertension_ICD_9),
+    ICD_AF             = check_icd(., AF_ICD_10, AF_ICD_9),
+    ICD_Atopy          = check_icd(., Atopy_ICD_10, Atopy_ICD_9),
+    ICD_Autoimmune     = check_icd(., Autoimmune_ICD_10, Autoimmune_ICD_9),
+    ICD_CKD            = check_icd(., CKD_ICD_10, CKD_ICD_9)
+  )
+
+#=========================================================================================================
+# Exclusion (ICD Congenital Disease, Cholesterol Lowering Medication, Cancer within 2 years of recruitment)
+#==========================================================================================================
+# 1. Removing Specified ICD Congenital Diseases
+
+## 1a. ICD Congenital Codes
+exclude_codes_ICD10 <- c(
+  "Q99", "Q98", "Q97", "Q96", "Q95", "Q93", "Q92", "Q91", "Q89", "Q87", 
+  "Q86", "Q85", "Q81", "Q80", "Q79", "Q78", "Q77", "Q76", "Q67", "Q64", 
+  "Q63", "Q62", "Q61", "Q60", "Q56", "Q45", "Q44", "Q43", "Q42", "Q41", 
+  "Q34", "Q33", "Q32", "Q28", "Q27", "Q26", "Q25", "Q24", "Q23", "Q22", 
+  "Q21", "Q20", "Q07", "Q06", "Q05", "Q04", "Q03", "Q02", "Q01", "Q00"
+)
+
+
+exclude_codes_ICD9 <- c("237", "740", "741", "742", "745", "746", "747", "748", "751", "752", "753", "754", "755", "756", "757", "758", "759", "760")
+
+
+
+## 1b. Remove participants with specified ICD10 or ICD9 codes
+
+ukb <- ukb %>%
+filter(
+  !if_any(
+    c(starts_with("primary_diagnoses_icd10.0."), 
+      starts_with("secondary_diagnoses_icd10.0.")),
+    ~ substr(., 1, 3) %in% exclude_codes_ICD10
+  )
+)
+
+ukb <- ukb %>%
+filter(
+  !if_any(
+    c(starts_with("primary_diagnoses_icd9.0."), 
+      starts_with("secondary_diagnoses_icd9.0.")),
+    ~ substr(., 1, 3) %in% exclude_codes_ICD9
+  )
+)
+
+
+# 2. Exclusion - Cholesterol lowering medications
+
+## 2a. Remove female only questions for male participants (vice versa)
+
+ukb <- ukb %>%
+  mutate(
+    # Fix Male columns
+    across(
+      c(
+        chol_bp_diabetes_hormone_medication.0.0,
+        chol_bp_diabetes_hormone_medication.0.1,
+        chol_bp_diabetes_hormone_medication.0.2,
+        chol_bp_diabetes_hormone_medication.0.3
+      ),
+      ~ ifelse(as.character(sex) == "Male", NA, as.character(.))
+    ),
+    
+    # Fix Female columns
+    across(
+      c(
+        chol_bp_diabetes_medication.0.0,
+        chol_bp_diabetes_medication.0.1,
+        chol_bp_diabetes_medication.0.2
+      ),
+      ~ ifelse(as.character(sex) == "Female", NA, as.character(.))
+    )
+  )
+
+## 2b. Remove all participants on Cholesterol lowering medications
+
+ukb <- ukb %>%
+  filter(
+    !if_any(
+      c(
+        chol_bp_diabetes_hormone_medication.0.0,
+        chol_bp_diabetes_hormone_medication.0.1,
+        chol_bp_diabetes_hormone_medication.0.2,
+        chol_bp_diabetes_hormone_medication.0.3,
+        chol_bp_diabetes_medication.0.0,
+        chol_bp_diabetes_medication.0.1,
+        chol_bp_diabetes_medication.0.2
+      ),
+      ~ as.character(.) == "Cholesterol lowering medication" & !is.na(.)
+    )
+  )
+
+
+# 3. Exclusion - Participants with cancer within 2 years of recruitment
+
+
+# 3a. Ensure diagnosis ages/years treated as numeric variables (or converted to NA if applicable)
+ukb <- ukb %>%
+  mutate(
+    across(
+      c(
+        cancer_first_dx.0.0,
+        cancer_first_dx.0.1,
+        cancer_first_dx.0.2,
+        cancer_first_dx.0.3,
+        cancer_first_dx.0.4,
+        cancer_first_dx.0.5
+      ),
+      ~ as.numeric(as.character(.))
+    )
+  )
+
+
+# 3b. Create year and age recruited variables
+
+ukb <- ukb %>%
+  mutate(
+    date_recr = as.Date(date_recr),
+    year_recr = as.numeric(format(date_recr, "%Y")),
+    age_recr = year_recr - yob
+  )
+# 3c. Compare diagnosis ages/years to year and age recruited variables
+ukb <- ukb %>%
+  filter(
+    !if_any(
+      c(
+        cancer_first_dx.0.0,
+        cancer_first_dx.0.1,
+        cancer_first_dx.0.2,
+        cancer_first_dx.0.3,
+        cancer_first_dx.0.4,
+        cancer_first_dx.0.5
+      ),
+      ~ !is.na(.) & (
+          ( . >= (year_recr - 2) & . <= year_recr ) | 
+          ( . >= (age_recr - 2)  & . <= age_recr )
+      )
+    )
+  )
+#==========================================================================================
+
+
+
+
 
 
 
