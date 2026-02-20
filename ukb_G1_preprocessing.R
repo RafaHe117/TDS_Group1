@@ -631,8 +631,8 @@ recode_mental_health <- function(df,
   is_unemployed <- rowSums(employment_matrix == "Unemployed", na.rm = TRUE) > 0
   
   # Overwrite the work score for unemployed and for retired
-  cat_matrix[is_retired, "work"] <- 3
   cat_matrix[is_unemployed, "work"] <- 0
+  cat_matrix[is_retired, "work"] <- 3
   
   # Calculate how many questions each person answered
   n_answered <- rowSums(!is.na(cat_matrix))
