@@ -1303,11 +1303,46 @@ ukb <- ukb %>%
   )
 #==========================================================================================
 
+##############################################################################
+# DROP raw variables that have been recoded (keep only final recoded vars)
+##############################################################################
 
+drop_cols <- c(
+  "sys_bp_automatic","sbp_manual","dys_bp_automatic","dbp_manual",
+  "ethnicity","urban_rural","no_2010",
+  "blood_sample_attempted","urine_device",
+  "bipolar_depression_status","gp_anxiety_depression","diabetes_diagnosed",
+  "birth_weight","tv_duration","total_met_minutes_weekly",
+  "sleep_duration","insomnia","snoring",
+  "smoking_status","pack_years_smoked","cigarettes_per_day_prev",
+  "alcohol_status","alcohol_freq",
+  "menopause","self_health_rating",
+  "household_size","employment_status","job_shift_work","work_hours_week","work_hours_cat",
+  "imd_england","imd_scotland","imd_wales",
+  "total_medications"
+)
 
+drop_cols <- c(
+  drop_cols,
+  grep("^(father|mother|sibling)_illness\\.0\\.", names(ukb), value = TRUE),
+  grep("^iibs_2yr\\.0\\.", names(ukb), value = TRUE),
+  grep("^education\\.0\\.[0-5]$", names(ukb), value = TRUE),
+  grep("^household_relationship", names(ukb), value = TRUE),
+  grep("^employment_status", names(ukb), value = TRUE)
+)
 
+##############################################################################
+# DROP raw ICD diagnosis columns (keep only ICD_* binary flags)
+##############################################################################
+drop_cols <- c(
+  drop_cols,
+  grep("^primary_diagnoses_icd10\\.0\\.", names(ukb), value = TRUE),
+  grep("^secondary_diagnoses_icd10\\.0\\.", names(ukb), value = TRUE),
+  grep("^primary_diagnoses_icd9\\.0\\.",  names(ukb), value = TRUE),
+  grep("^secondary_diagnoses_icd9\\.0\\.", names(ukb), value = TRUE)
+)
 
-
+ukb <- ukb %>% select(-any_of(unique(drop_cols)))
 
 # save
 saveRDS(ukb, "ukb_G1_preprocessed.rds")
