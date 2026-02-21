@@ -339,35 +339,33 @@ if ("tv_duration" %in% names(ukb)) {
 }
 
 ##############################################################################
-# Total MET minutes weekly -> cleaned + group
+# Total MET minutes weekly grouped using WHO/IPAQ cutpoints (<600, 600–<3000, ≥3000)
 ##############################################################################
 
 if ("total_met_minutes_weekly" %in% names(ukb)) {
   
-  met_clean <- ukb$total_met_minutes_weekly
-  met_clean[met_clean < 0] <- NA_real_
+  met_raw <- ukb$total_met_minutes_weekly
+  met_raw[met_raw < 0] <- NA_real_
   
-  ukb$total_met_min_wk <- met_clean
-  
-  q <- quantile(met_clean, probs = c(1/3, 2/3), na.rm = TRUE, type = 2)
+  ukb$total_met_min_wk <- met_raw
   
   ukb$total_met_group <- factor(
-    ifelse(is.na(met_clean), NA,
-           ifelse(met_clean <= q[1], "Low",
-                  ifelse(met_clean <= q[2], "Moderate", "High"))),
+    ifelse(is.na(met_raw), NA,
+           ifelse(met_raw < 600, "Low",
+                  ifelse(met_raw < 3000, "Moderate", "High"))),
     levels = c("Low", "Moderate", "High")
   )
   
+  print(summary(ukb$total_met_min_wk))
   print(table(ukb$total_met_group, useNA = "ifany"))
 }
 
 ##############################################################################
-# Sleep quality score (duration + insomnia + snoring)
+# Sleep quality score (normalized + prorated)
 ##############################################################################
 tmp <- ukb$sleep_duration
 tmp[tmp %in% c("Do not know", "Prefer not to answer")] <- NA
 sleep_num <- as.numeric(tmp)
-
 sleep_num[sleep_num < 1 | sleep_num > 23] <- NA
 
 sleep_duration_pt <- ifelse(
@@ -386,25 +384,32 @@ snoring_pt <- ifelse(
   ifelse(ukb$snoring == "Yes", 0L, NA_integer_)
 )
 
-pt_mat <- cbind(sleep_duration_pt, insomnia_pt, snoring_pt)
-n_obs  <- rowSums(!is.na(pt_mat))
+# normalize each component to 0–1
+dur01 <- sleep_duration_pt / 1
+ins01 <- insomnia_pt / 2
+snr01 <- snoring_pt / 1
 
+mat01 <- cbind(dur01, ins01, snr01)
+n_obs <- rowSums(!is.na(mat01))
+
+# average across observed components, scale to 0–3
 ukb$sleep_quality_score <- ifelse(
-  n_obs < 2, NA_integer_,
-  rowSums(pt_mat, na.rm = TRUE)
+  n_obs < 2, NA_real_,
+  rowMeans(mat01, na.rm = TRUE) * 3
 )
 
 print(summary(ukb$sleep_quality_score))
-print(table(ukb$sleep_quality_score, useNA = "ifany"))
+print(table(n_obs, useNA = "ifany"))
 
 ##############################################################################
-# Smoking -> combined 3-level variable & drop others
+# Smoking -> 3-level variable; drop intensity vars (synthetic data consistency)
 ##############################################################################
 
 if ("smoking_status" %in% names(ukb)) {
   
   smk <- ukb$smoking_status
-  smk[smk == "Prefer not to answer"] <- NA
+  if (is.factor(smk)) smk <- as.character(smk)
+  smk[smk == "Prefer not to answer"] <- NA_character_
   
   ukb$smoking_3cat <- factor(
     smk,
@@ -412,10 +417,11 @@ if ("smoking_status" %in% names(ukb)) {
   )
   
   print(table(ukb$smoking_3cat, useNA = "ifany"))
-  
-  ukb <- ukb[, !names(ukb) %in% 
-               c("pack_years_smoked", "cigarettes_per_day_prev")]
 }
+
+# drop original intensity variables
+ukb$pack_years_smoked <- NULL
+ukb$cigarettes_per_day_prev <- NULL
 
 ##############################################################################
 # Extract the highest qualification -> education
