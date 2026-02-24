@@ -129,7 +129,8 @@ drop_manual <- c(
   "salt_intake",
   "sodium_in_urine",
   "work_hours_unified_cat",
-  "cancer_reported"
+  "cancer_reported",
+  "menopause_bin"
 )
 
 ukb <- ukb %>% 
