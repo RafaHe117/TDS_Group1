@@ -82,10 +82,20 @@ cat("N before:", n2_before, "\n")
 cat("N after :", n2_after, "\n")
 cat("Excluded:", n2_before - n2_after, "\n")
 
+# Drop cholesterol medication variables (used only for exclusion)
+ukb <- ukb %>%
+  select(
+    -chol_bp_diabetes_hormone_medication.0.0,
+    -chol_bp_diabetes_hormone_medication.0.1,
+    -chol_bp_diabetes_hormone_medication.0.2,
+    -chol_bp_diabetes_hormone_medication.0.3,
+    -chol_bp_diabetes_medication.0.0,
+    -chol_bp_diabetes_medication.0.1,
+    -chol_bp_diabetes_medication.0.2
+  )
 # ---------------------------------------------------------------------------------------------------------
 # 3. Exclusion - Missing ethnicity / urban-rural (non-imputable structural missingness)
 # ---------------------------------------------------------------------------------------------------------
-
 n3_before <- nrow(ukb)
 
 ukb <- ukb %>%
@@ -100,6 +110,7 @@ cat("\nStage 3 - Missing ethnicity / urban-rural exclusion:\n")
 cat("N before:", n3_before, "\n")
 cat("N after :", n3_after, "\n")
 cat("Excluded:", n3_before - n3_after, "\n")
+
 
 # save
 saveRDS(ukb, "ukb_G1_cleaned.rds")
