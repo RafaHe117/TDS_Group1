@@ -896,8 +896,8 @@ ukb <- ukb %>%
     ),
     
 # 2) Only employed participants should have exposure values, other set to NA
-    job_shift_work_clean = ifelse(
-      employment_status == "In paid employment or self-employed",
+    job_shift_work_clean = if_else(
+      employment_2cat == "In paid employment",
       job_shift_work_clean,
       NA_character_
     ),
@@ -968,10 +968,10 @@ ukb <- ukb %>%
 ukb <- ukb %>%
   mutate(
     work_hours_unified_cat = case_when(
-      employment_status == "In paid employment or self-employed" &
+      employment_2cat == "In paid employment" &
         !is.na(work_hours_exact_binned) ~ work_hours_exact_binned,
 
-      employment_status == "In paid employment or self-employed" &
+      employment_2cat == "In paid employment" &
         is.na(work_hours_exact_binned) &
         !is.na(work_hours_cat_clean) ~ work_hours_cat_clean,
 
