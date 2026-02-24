@@ -1,5 +1,6 @@
 # Libraries
 library(dplyr)
+library(scales)
 
 # path
 setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
@@ -606,6 +607,80 @@ print(verification_subset)
 rm(verification_subset)
 
 ##############################################################################
+# Recode numeric dietary intake variables
+#   - fruit_intake_fresh
+#   - tea_intake
+#   - coffee_intake
+##############################################################################
+recode_numeric_intake <- function(df, vars) {
+  
+  df <- df %>%
+    mutate(
+      across(
+        all_of(vars),
+        ~ case_when(
+          .x %in% c("Do not know", "Prefer not to answer") ~ NA_character_,
+          .x == "Less than one" ~ "0",
+          .x == "99" ~ NA_character_,  # UKB special code
+          TRUE ~ as.character(.x)
+        )
+      )
+    ) %>%
+    mutate(
+      across(all_of(vars), as.numeric)
+    )
+  
+  return(df)
+}
+
+ukb <- recode_numeric_intake(
+  ukb,
+  vars = c("fruit_intake_fresh", "tea_intake", "coffee_intake")
+)
+
+summary(ukb$fruit_intake_fresh)
+summary(ukb$tea_intake)
+summary(ukb$coffee_intake)
+
+##############################################################################
+# Merge oily fish into 3 levels
+##############################################################################
+ukb <- ukb %>%
+  mutate(
+    oily_fish_3cat = case_when(
+      oily_fish_intake %in% c("Never", "Less than once a week") ~ "Low",
+      oily_fish_intake %in% c("Once a week", "2-4 times a week") ~ "Medium",
+      oily_fish_intake %in% c("5-6 times a week", "Once or more daily") ~ "High",
+      TRUE ~ NA_character_
+    ),
+    oily_fish_3cat = factor(oily_fish_3cat, 
+                            levels = c("Low", "Medium", "High"),
+                            ordered = TRUE)
+  )
+
+table(ukb$oily_fish_3cat, useNA = "ifany")
+
+##############################################################################
+# Merge salt intake into 3 levels
+##############################################################################
+ukb <- ukb %>%
+  mutate(
+    salt_3cat = case_when(
+      salt_intake == "Never/rarely" ~ "Low",
+      salt_intake %in% c("Sometimes", "Usually") ~ "Medium",
+      salt_intake == "Always" ~ "High",
+      TRUE ~ NA_character_
+    ),
+    salt_3cat = factor(
+      salt_3cat,
+      levels = c("Low", "Medium", "High"),
+      ordered = TRUE
+    )
+  )
+
+table(ukb$salt_3cat, useNA = "ifany")
+
+##############################################################################
 # Calculate mental health satisfaction score (mh_satis_mean_score)
 ##############################################################################
 recode_mental_health <- function(df, 
@@ -1171,7 +1246,6 @@ ukb <- ukb %>%
 ##############################################################################
 # DROP raw variables that have been recoded (keep only final recoded vars)
 ##############################################################################
-
 drop_cols <- c(
   "sys_bp_automatic","sbp_manual","dys_bp_automatic","dbp_manual",
   "ethnicity","urban_rural","no_2010",
@@ -1181,10 +1255,11 @@ drop_cols <- c(
   "sleep_duration","insomnia","snoring",
   "smoking_status","pack_years_smoked","cigarettes_per_day_prev",
   "education", 
-  "alcohol_status","alcohol_freq", "redwine",
-  "beef", "lamb", "pork", "processed_meat_intake", "cheese", "milk",
-  "happiness", "work_satis", "family_satis", "friend_satis", "fin_satis", "mh_n_answered",
+  "alcohol_status","alcohol_freq","redwine",
+  "beef","lamb","pork","processed_meat_intake","cheese","milk",
+  "happiness","work_satis","family_satis","friend_satis","fin_satis","mh_n_answered",
   "menopause","self_health_rating",
+  "maternal_smoking","breastfed","pregnant","age_heart_attack_dx","health_satis",
   "household_size","employment_status","job_shift_work","work_hours_week","work_hours_cat",
   "imd_england","imd_scotland","imd_wales",
   "total_medications"
@@ -1196,8 +1271,13 @@ drop_cols <- c(
   grep("^iibs_2yr\\.0\\.", names(ukb), value = TRUE),
   grep("^education\\.0\\.[0-5]$", names(ukb), value = TRUE),
   grep("^household_relationship", names(ukb), value = TRUE),
-  grep("^employment_status", names(ukb), value = TRUE)
+  grep("^employment_status", names(ukb), value = TRUE),
+  grep("^(primary|secondary)_diagnoses_icd10\\.0\\.", names(ukb), value = TRUE),
+  grep("^(primary|secondary)_diagnoses_icd9\\.0\\.", names(ukb), value = TRUE),
+  grep("^cancer_first_dx\\.0\\.", names(ukb), value = TRUE)
 )
+
+ukb <- ukb %>% select(-any_of(drop_cols))
 
 # save
 saveRDS(ukb, "ukb_G1_preprocessed.rds")
