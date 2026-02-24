@@ -111,6 +111,29 @@ cat("N before:", n3_before, "\n")
 cat("N after :", n3_after, "\n")
 cat("Excluded:", n3_before - n3_after, "\n")
 
+# -------------------------------------------------------------------------
+# Drop variables with >30% missingness and variables not used for CVD prediction
+# -------------------------------------------------------------------------
+drop_manual <- c(
+  "shift_work",
+  "mixed_shift",
+  "living_alone",
+  "oral_contraception",
+  "household_size_clean",
+  "job_shift_work_clean",
+  "nrbc_count",
+  "microalbumin",
+  "hrt",
+  "self_health_bin",
+  "gp_anxdep",
+  "salt_intake",
+  "sodium_in_urine",
+  "work_hours_unified_cat",
+  "cancer_reported"
+)
+
+ukb <- ukb %>% 
+  select(-any_of(drop_manual))
 
 # save
 saveRDS(ukb, "ukb_G1_cleaned.rds")
