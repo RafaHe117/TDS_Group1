@@ -28,7 +28,7 @@ print_high_missingness(ukb)
 ############################################
 # Produce missingness heatmap
 ############################################
-missingness_heatmap <- function(df, bin_size = 100) {
+missingness_heatmap <- function(df, bin_size = 100, fig_name) {
   
   # Boolean transformation
   na_matrix <- is.na(df) * 1
@@ -60,8 +60,9 @@ missingness_heatmap <- function(df, bin_size = 100) {
           panel.grid = element_blank(),
           legend.title = element_text(margin = margin(b = 15)))
   
-  ggsave(filename = file.path("figure", "missingness_heatmap.png"), plot = p, 
+  ggsave(filename = file.path("figure", fig_name), plot = p, 
          width = 20, height = 12, dpi = 450)
 }
 
-missingness_heatmap(ukb, bin_size = 1000)
+missingness_heatmap(ukb, bin_size = 1000, fig_name = "heatmap_pre_exclusion.png")
+missingness_heatmap(ukb_G1_cleaned, bin_size = 1000, fig_name = "heatmap_pre_imputation.png")
