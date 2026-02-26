@@ -55,13 +55,13 @@ missingness_heatmap <- function(df, bin_size = 100) {
          y = sprintf("Aggregated Row Bins (1 bin = %d observations)", bin_size)) +
     theme_minimal() +
     theme(plot.title = element_text(hjust = 0.5),
-          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 3), 
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 9), 
           axis.ticks.x = element_line(color = "grey80"),
           panel.grid = element_blank(),
           legend.title = element_text(margin = margin(b = 15)))
   
   ggsave(filename = file.path("figure", "missingness_heatmap.png"), plot = p, 
-         width = 20, height = 12, dpi = 900)
+         width = 20, height = 12, dpi = 450)
 }
 
-missingness_heatmap(ukb, bin_size = 10000)
+missingness_heatmap(ukb, bin_size = 1000)
