@@ -9,3 +9,7 @@
 .RData
 .DS_Store
 
+
+# Ignore local imputation outputs
+imputation/logs/
+imputation/ukb_impute.*
