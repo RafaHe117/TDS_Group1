@@ -11,7 +11,6 @@ ukb <- readRDS("ukb_G1_Raw.rds")
 ##############################################################################
 # Blood pressure cleanup + mean BP
 ##############################################################################
-
 # remove extreme systolic values
 if ("sys_bp_automatic" %in% names(ukb)) {
   ukb$sys_bp_automatic[ukb$sys_bp_automatic > 300] <- NA
@@ -113,7 +112,6 @@ if ("pm10_2010" %in% names(ukb)) print(summary(ukb$pm10_2010))
 ##############################################################################
 # Greenspace / Noise cleanup (1000m + 24h)
 ##############################################################################
-
 if ("greenspace_pct_1000m" %in% names(ukb)) {
   ukb$greenspace_pct_1000m[ukb$greenspace_pct_1000m < 0] <- NA
   ukb$greenspace_pct_1000m[ukb$greenspace_pct_1000m > 100] <- NA
@@ -732,11 +730,8 @@ ukb <- recode_mental_health(ukb)
 table(ukb$mh_n_answered, is.na(ukb$mh_satis_mean_score), useNA = "always")
 
 ##############################################################################
-# recode had menopause (Field 2724) -> 2 groups (Yes / No) ；Indeterminate categories -> NA
-# Restrict to females; males set to NA
-# Menopause is strongly age-dependent.Age adjustment or stratification required in downstream models.
+# Recode menopause (Field 2724) to binary (Yes / No)
 ##############################################################################
-
 recode_menopause <- function(df,
                              var = "menopause",
                              sex_var = "sex") {
@@ -760,11 +755,8 @@ print(table(ukb$sex, ukb$menopause_bin, useNA = "ifany"))
 print(table(ukb$menopause, ukb$menopause_bin, useNA = "ifany"))
 
 ##############################################################################
-# recode self-rated health (Field 2178) -> 2 groups (Good vs Poor)
-# "Prefer not to answer" and "Do not know" -> missing (NA)
-# Self-rated health may act as a mediator or collider
+# Recode self-rated health (Field 2178) to binary (Good / Poor)
 ##############################################################################
-
 recode_self_health <- function(df, var = "self_health_rating") {
   
   df$self_health_bin <- NA_character_
@@ -790,12 +782,10 @@ print(table(ukb$self_health_rating, ukb$self_health_bin, useNA = "ifany"))
 # Household income will be used as primary socioeconomic indicator.
 
 ##############################################################################
-# recode living with partner (Field 6141)
-# Define Yes if "Husband, wife or partner" ；Prefer not to answer -> NA
+# Recode living with partner (Field 6141) to binary (Yes / No)
 ##############################################################################
-# identify columns
-cols_hr <- grep("household_relationship", colnames(ukb), value = TRUE)
 
+cols_hr <- grep("household_relationship", colnames(ukb), value = TRUE)
 # construct living_with_partner
 ukb$living_with_partner <- apply(ukb[, cols_hr], 1, function(x) {
   
@@ -828,72 +818,37 @@ ukb$living_with_partner <- factor(
 table(ukb$living_with_partner, useNA = "ifany")
 
 ##############################################################################
-# Clean household_size (Field 709) - Create living_alone (1 vs >=2)
-# Convert to numeric ；Set special codes to NA (-9999, 999, etc.) ；Remove implausible values (>20)
+# Clean household size (Field 709) and derive living_alone (1 vs ≥2)
 ##############################################################################
-
 clean_household_size <- function(df, var = "household_size") {
   
-  # 1️⃣ Convert to character first (in case factor)
   x <- as.character(df[[var]])
+  x[x %in% c("Do not know", "Prefer not to answer", "", "NA")] <- NA
   
-  # 2️⃣ Set explicit missing strings to NA
-  x[x %in% c("Do not know",
-             "Prefer not to answer",
-             "",
-             "NA")] <- NA
-  
-  # 3️⃣ Convert to numeric
   x_num <- suppressWarnings(as.numeric(x))
-  
-  # 4️⃣ Set known UKB missing codes to NA
   x_num[x_num %in% c(-9999, -999, -1)] <- NA
-  
-  # 5️⃣ Remove implausible household sizes
-  # UKB typical max household size < 15
   x_num[x_num > 20] <- NA
   
-  # 6️⃣ Save cleaned variable
   df$household_size_clean <- x_num
   
-  # 7️⃣ Create living_alone
-  df$living_alone <- NA_character_
-  
-  df$living_alone[x_num == 1] <- "Yes"
-  df$living_alone[x_num >= 2] <- "No"
-  
-  df$living_alone <- factor(df$living_alone,
-                            levels = c("No", "Yes"))
+  df$living_alone <- factor(
+    ifelse(is.na(x_num), NA,
+           ifelse(x_num == 1, "Yes", "No")),
+    levels = c("No", "Yes")
+  )
   
   df
 }
 
-# Apply
 ukb <- clean_household_size(ukb)
 
-# QUICK CHECKS
-
-# Check distribution of cleaned size
 summary(ukb$household_size_clean)
-
-# Check frequency table
 table(ukb$household_size_clean, useNA = "ifany")
-
-# Check living alone
 table(ukb$living_alone, useNA = "ifany")
-
-# Cross-check
-table(ukb$household_size_clean, ukb$living_alone, useNA="ifany")
-
+table(ukb$household_size_clean, ukb$living_alone, useNA = "ifany")
 
 ############################################################
-# recode employment_status (Field 6142) -> 2 groups (In paid，Not in paid)
-#For each row of 7 columns:
-#If "In paid employment or self-employed" appears → In paid employment
-#Otherwise, if any "true state" appears (Retired / Unemployed / Student / Looking after home / Doing unpaid work, etc.) → Not in paid employment
-#Otherwise, if the only true state is Unable → NA
-#Otherwise (all are None of the above / Prefer not / NA) → NA
-#Note: Here, Unable is treated as a state to be excluded/not included in category 2, and NA is only triggered if it is the only true state; once paid is present, paid overrides it.
+# Recode employment status (Field 6142) to binary (In paid / Not in paid)
 ############################################################
 # Identify employment columns
 cols_emp <- grep("employment_status", colnames(ukb), value = TRUE)
@@ -1262,7 +1217,8 @@ drop_cols <- c(
   "maternal_smoking","breastfed","pregnant","age_heart_attack_dx","health_satis",
   "household_size","employment_status","job_shift_work","work_hours_week","work_hours_cat",
   "imd_england","imd_scotland","imd_wales",
-  "total_medications"
+  "total_medications",
+  "oral_contraception","salt_intake","sodium_in_urine","cancer_reported"
 )
 
 drop_cols <- c(
