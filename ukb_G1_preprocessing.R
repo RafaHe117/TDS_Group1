@@ -147,7 +147,8 @@ biomarkers_num <- c(
   "cystatin_c","glucose","hba1c","igf_1","phosphate",
   "total_bilirubin","total_blood_protein","total_triglyceride",
   "urate","blood_vitamin_d","crp","lipoprotein_a",
-  "ldl_cholesterol","hdl_cholesterol"
+  "ldl_cholesterol","hdl_cholesterol",
+  "apolipoprotein_a","apolipoprotein_b"   # <- add
 )
 
 biomarkers_num <- biomarkers_num[biomarkers_num %in% names(ukb)]
