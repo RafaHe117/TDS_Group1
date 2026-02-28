@@ -73,8 +73,8 @@ ukb_imp <- ukb[, predictor_cols, drop = FALSE]
 imp_vars <- intersect(imp_vars, names(ukb_imp))
 
 # hyperparameters
-MAXITER <- 5
-NTREES  <- 75
+MAXITER <- 10
+NTREES  <- 100
 
 # detect sparse categorical vars
 sparse_cat <- imp_vars[
@@ -94,7 +94,7 @@ if (length(main_vars) > 0) {
     maxiter = MAXITER,
     num.trees = NTREES,
     vars = main_vars,
-    valueSelector = "value",
+    valueSelector = "meanMatch",
     num.threads = n_cores,
     verbose = TRUE
   )
@@ -112,7 +112,7 @@ if (length(sparse_cat) > 0) {
       maxiter = MAXITER,
       num.trees = NTREES,
       vars = v,
-      valueSelector = "value",
+      valueSelector = "meanMatch",
       num.threads = n_cores,
       verbose = TRUE
     )
@@ -150,6 +150,8 @@ if ("total_met_min_wk" %in% names(ukb)) {
 miss_after <- sapply(imp_vars, function(v) sum(is.na(ukb[[v]])))
 cat("Remaining missing (should be 0):\n")
 print(miss_after[miss_after > 0])
+
+stopifnot(all(sapply(imp_vars, function(v) sum(is.na(ukb[[v]]))) == 0))
 
 saveRDS(ukb, out_file)
 cat("Saved:", out_file, "\n")
