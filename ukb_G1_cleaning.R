@@ -112,29 +112,23 @@ cat("N after :", n3_after, "\n")
 cat("Excluded:", n3_before - n3_after, "\n")
 
 # -------------------------------------------------------------------------
-# Drop variables with >30% missingness and variables not used for CVD prediction
+# Automatically drop variables with ≥30% missingness
+# Retain key outcome/time variables (e.g., dod, cvd_first_date)
 # -------------------------------------------------------------------------
-drop_manual <- c(
-  "shift_work",
-  "mixed_shift",
-  "living_alone",
-  "oral_contraception",
-  "household_size_clean",
-  "job_shift_work_clean",
-  "nrbc_count",
-  "microalbumin",
-  "hrt",
-  "self_health_bin",
-  "gp_anxdep",
-  "salt_intake",
-  "sodium_in_urine",
-  "work_hours_unified_cat",
-  "cancer_reported",
-  "menopause_bin"
-)
+
+thr <- 0.30
+
+na_prop   <- colMeans(is.na(ukb))          # proportion missing per variable
+high_miss <- names(na_prop[na_prop >= thr])
+
+protected <- intersect(c("dod", "cvd_first_date"), names(ukb))
+drop_auto <- setdiff(high_miss, protected)
+
+cat("\nDropping variables with missingness >=", thr * 100, "% (protected kept):\n")
+print(sort(na_prop[drop_auto], decreasing = TRUE))
 
 ukb <- ukb %>% 
-  select(-any_of(drop_manual))
+  select(-any_of(drop_auto))
 
 # save
 saveRDS(ukb, "ukb_G1_cleaned.rds")
