@@ -1,0 +1,18 @@
+#!/bin/bash
+#$ -N table1_yl
+#$ -cwd
+#$ -o analysis/output/table1_job.out
+#$ -e analysis/output/table1_job.err
+#$ -l h_rt=00:30:00
+#$ -l mem=8G
+#$ -pe smp 1
+
+# Load R (adjust module name if needed)
+module purge
+module load tools/prod
+module load R/4.3.2-gfbf-2023a
+
+cd /rds/general/project/hda_25-26/live/TDS/TDS_Group1
+
+# Run
+Rscript analysis/table1_run.R
