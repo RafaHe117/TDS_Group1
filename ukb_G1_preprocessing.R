@@ -1,11 +1,10 @@
 # Libraries
 library(dplyr)
 library(scales)
+library(forcats)
 
-# path
 setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
 
-# Read data
 ukb <- readRDS("ukb_G1_Raw.rds")
 
 ##############################################################################
@@ -497,6 +496,54 @@ recode_alcohol <- function(df, alcohol_status = "alcohol_status", alcohol_freq =
 ukb <- recode_alcohol(ukb)
 print(table(ukb$alcohol_status, ukb$alcohol_freq, useNA = "always"))
 print(table(ukb$alcohol_combined, useNA = "ifany"))
+
+##############################################################################
+# Collapse alcohol_combined levels
+##############################################################################
+collapse_alcohol_combined <- function(df, alcohol_combined) {
+  df %>%
+    mutate(
+      "{alcohol_combined}" := fct_collapse(as.character(.data[[alcohol_combined]]),
+                                           
+                                           "Never" = "Never",
+                                           
+                                           "Former" = c(
+                                             "Previous: Daily or almost daily",
+                                             "Previous: Once or twice a week",
+                                             "Previous: One to three times a month",
+                                             "Previous: Special occasions only",
+                                             "Previous: Three or four times a week",
+                                             "Previous: Prefer not to answer"
+                                           ),
+                                           
+                                           "Current-Low" = c(
+                                             "Current: Special occasions only",
+                                             "Current: One to three times a month"
+                                           ),
+                                           
+                                           "Current-Moderate" = c(
+                                             "Current: Once or twice a week",
+                                             "Current: Three or four times a week"
+                                           ),
+                                           
+                                           "Current-High" = c(
+                                             "Current: Daily or almost daily"
+                                           ),
+                                           
+                                           "Prefer not to answer" = c(
+                                             "Current: Prefer not to answer",
+                                             "Prefer not to answer: Daily or almost daily",
+                                             "Prefer not to answer: Once or twice a week",
+                                             "Prefer not to answer: One to three times a month",
+                                             "Prefer not to answer: Prefer not to answer",
+                                             "Prefer not to answer: Special occasions only",
+                                             "Prefer not to answer: Three or four times a week"
+                                           )
+      )
+    )
+}
+
+ukb <- collapse_alcohol_combined(ukb, "alcohol_combined")
 
 ##############################################################################
 # Bin average weekly red wine consumption
