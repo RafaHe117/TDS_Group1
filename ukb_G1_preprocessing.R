@@ -988,14 +988,14 @@ ukb <- ukb %>%
 # ------------------------------------------------------------
 # OPTION: Simplify to a binary indicator ever_nights
 # ------------------------------------------------------------
-# ukb <- ukb %>%
-#  mutate(
-#    ever_nights = case_when(
-#      is.na(job_shift_work_clean) ~ NA,
-#      job_shift_work_clean == "Never/rarely" ~ 0,
-#      TRUE ~ 1
-#    )
-#  )
+ukb <- ukb %>%
+ mutate(
+   ever_nights = case_when(
+     is.na(job_shift_work_clean) ~ NA,
+     job_shift_work_clean == "Never/rarely" ~ 0,
+     TRUE ~ 1
+   )
+ )
 
 
 
