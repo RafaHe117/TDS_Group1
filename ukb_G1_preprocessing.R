@@ -482,12 +482,23 @@ print(table(ukb$education, ukb$education_2, useNA = "ifany"))
 # combine alcohol_status and alcohol_freq -> alcohol_combined
 ##############################################################################
 recode_alcohol <- function(df, alcohol_status = "alcohol_status", alcohol_freq = "alcohol_freq") {
+  
   df <- df %>%
-    mutate(alcohol_combined = case_when(
-      .data[[alcohol_status]] == "Never" & .data[[alcohol_freq]] == "Never" ~ "Never",
-      .data[[alcohol_status]] == "Never" & .data[[alcohol_freq]] != "Never" ~ "Never",
-      .data[[alcohol_status]] != "Never" & .data[[alcohol_freq]] == "Never" ~ "Never",
-      TRUE ~ paste(.data[[alcohol_status]], .data[[alcohol_freq]], sep = ": ")
+    mutate(
+      
+      across(
+        all_of(c(alcohol_status, alcohol_freq)), 
+        ~ na_if(.x, "Prefer not to answer")
+      ),
+      
+      alcohol_combined = case_when(
+        # If either column is "Never", assign "Never"
+        .data[[alcohol_status]] == "Never" | .data[[alcohol_freq]] == "Never" ~ "Never",
+        
+        # If either column is NA, the combined result should be NA
+        is.na(.data[[alcohol_status]]) | is.na(.data[[alcohol_freq]]) ~ NA_character_,
+      
+        TRUE ~ paste(.data[[alcohol_status]], .data[[alcohol_freq]], sep = ": ")
     ))
   
   return(df)
@@ -512,8 +523,7 @@ collapse_alcohol_combined <- function(df, alcohol_combined) {
                                              "Previous: Once or twice a week",
                                              "Previous: One to three times a month",
                                              "Previous: Special occasions only",
-                                             "Previous: Three or four times a week",
-                                             "Previous: Prefer not to answer"
+                                             "Previous: Three or four times a week"
                                            ),
                                            
                                            "Current-Low" = c(
@@ -528,16 +538,6 @@ collapse_alcohol_combined <- function(df, alcohol_combined) {
                                            
                                            "Current-High" = c(
                                              "Current: Daily or almost daily"
-                                           ),
-                                           
-                                           "Prefer not to answer" = c(
-                                             "Current: Prefer not to answer",
-                                             "Prefer not to answer: Daily or almost daily",
-                                             "Prefer not to answer: Once or twice a week",
-                                             "Prefer not to answer: One to three times a month",
-                                             "Prefer not to answer: Prefer not to answer",
-                                             "Prefer not to answer: Special occasions only",
-                                             "Prefer not to answer: Three or four times a week"
                                            )
       )
     )
@@ -989,13 +989,13 @@ ukb <- ukb %>%
 # OPTION: Simplify to a binary indicator ever_nights
 # ------------------------------------------------------------
 # ukb <- ukb %>%
-#   mutate(
-#     ever_nights = case_when(
-#       is.na(job_shift_work_clean) ~ NA,
-#       job_shift_work_clean == "Never/rarely" ~ 0,
-#       TRUE ~ 1
-#     )
-#   )
+#  mutate(
+#    ever_nights = case_when(
+#      is.na(job_shift_work_clean) ~ NA,
+#      job_shift_work_clean == "Never/rarely" ~ 0,
+#      TRUE ~ 1
+#    )
+#  )
 
 
 
