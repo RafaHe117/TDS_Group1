@@ -334,6 +334,7 @@ if ("tv_duration" %in% names(ukb)) {
     levels = c("<1h", "1–3h", "3–5h", ">5h")
   )
   
+  print(table(ukb$tv_hours_day, useNA = "ifany"))
   print(table(ukb$tv_group, useNA = "ifany"))
 }
 
@@ -1254,7 +1255,7 @@ drop_cols <- c(
   "ethnicity","urban_rural","no_2010",
   "blood_sample_attempted","urine_device",
   "bipolar_depression_status","gp_anxiety_depression","diabetes_diagnosed",
-  "birth_weight","tv_duration","total_met_minutes_weekly",
+  "birth_weight","tv_duration","tv_hours_day","total_met_minutes_weekly","total_met_min_wk",
   "sleep_duration","insomnia","snoring",
   "smoking_status","pack_years_smoked","cigarettes_per_day_prev",
   "education", 
