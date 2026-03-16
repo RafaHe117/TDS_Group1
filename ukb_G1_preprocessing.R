@@ -1229,7 +1229,7 @@ check_icd <- function(df, icd10_list, icd9_list) {
         ~ substr(as.character(.), 1, 3) %in% icd9_list
       )
     )
-  return(as.integer(res$flag))
+  return(dplyr::if_else(res$flag, "Yes", "No"))
 }
 
 
