@@ -1,7 +1,6 @@
 *.rds
 *.Rds
 *.csv
-*.xlsx
 *.xls
 *.png
 *.pdf
