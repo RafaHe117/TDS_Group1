@@ -12,29 +12,30 @@ set.seed(20260225)
 ukb <- readRDS(in_file)
 ukb <- as.data.frame(ukb)
 
-# drop derived vars (recreated later)
-ukb[c("tv_group","total_met_group")] <- NULL
-
 # ordered -> factor
 ord <- names(ukb)[sapply(ukb, is.ordered)]
-if (length(ord) > 0)
-  for (v in ord) ukb[[v]] <- factor(ukb[[v]], ordered = FALSE)
+if (length(ord) > 0) {
+  for (v in ord) {
+    ukb[[v]] <- factor(ukb[[v]], ordered = FALSE)
+  }
+}
 
 # cores
 get_cores <- function() {
-  for (k in c("MY_NCORES","NCPUS","PBS_NCPUS","OMP_NUM_THREADS")) {
+  for (k in c("MY_NCORES", "NCPUS", "PBS_NCPUS", "OMP_NUM_THREADS")) {
     x <- Sys.getenv(k, "")
     if (nzchar(x)) return(as.integer(x))
   }
   1L
 }
+
 n_cores <- get_cores()
 if (is.na(n_cores) || n_cores < 1) n_cores <- 1L
 options(ranger.num.threads = n_cores)
 
 # protect ID / outcome / date-like
-id_like   <- grep("^eid$|id$", names(ukb), ignore.case = TRUE, value = TRUE)
-date_like <- grep("date|death|time", names(ukb), ignore.case = TRUE, value = TRUE)
+id_like      <- grep("^eid$|id$", names(ukb), ignore.case = TRUE, value = TRUE)
+date_like    <- grep("date|death|time", names(ukb), ignore.case = TRUE, value = TRUE)
 outcome_like <- grep("^cvd", names(ukb), ignore.case = TRUE, value = TRUE)
 
 non_impute <- unique(c(id_like, date_like, outcome_like))
@@ -42,13 +43,13 @@ non_impute <- unique(c(id_like, date_like, outcome_like))
 # convert character -> factor (excluding protected vars)
 char_vars <- names(ukb)[sapply(ukb, is.character)]
 char_vars <- setdiff(char_vars, non_impute)
-for (v in char_vars) ukb[[v]] <- factor(ukb[[v]])
+for (v in char_vars) {
+  ukb[[v]] <- factor(ukb[[v]])
+}
 
 # eligible vars
 eligible <- names(ukb)[
-  sapply(ukb, function(x)
-    is.numeric(x) || is.factor(x) || is.logical(x)
-  )
+  sapply(ukb, function(x) is.numeric(x) || is.factor(x) || is.logical(x))
 ]
 
 # targets = any missing (1 missing counts)
@@ -98,6 +99,7 @@ if (length(main_vars) > 0) {
     num.threads = n_cores,
     verbose = TRUE
   )
+  
   comp_main <- as.data.frame(completeData(imp_main)[[1]])
   ukb[, main_vars]     <- comp_main[, main_vars, drop = FALSE]
   ukb_imp[, main_vars] <- comp_main[, main_vars, drop = FALSE]
@@ -116,34 +118,11 @@ if (length(sparse_cat) > 0) {
       num.threads = n_cores,
       verbose = TRUE
     )
+    
     comp_single <- as.data.frame(completeData(imp_single)[[1]])
     ukb[[v]]     <- comp_single[[v]]
     ukb_imp[[v]] <- comp_single[[v]]
   }
-}
-
-# regenerate derived vars
-if ("tv_hours_day" %in% names(ukb)) {
-  x <- ukb$tv_hours_day
-  x[x < 0 | x > 24] <- NA_real_
-  ukb$tv_group <- factor(
-    ifelse(is.na(x), NA,
-           ifelse(x < 1, "<1h",
-                  ifelse(x <= 3, "1–3h",
-                         ifelse(x <= 5, "3–5h", ">5h")))),
-    levels = c("<1h","1–3h","3–5h",">5h")
-  )
-}
-
-if ("total_met_min_wk" %in% names(ukb)) {
-  x <- ukb$total_met_min_wk
-  x[x < 0] <- NA_real_
-  ukb$total_met_group <- factor(
-    ifelse(is.na(x), NA,
-           ifelse(x < 600, "Low",
-                  ifelse(x < 3000, "Moderate","High"))),
-    levels = c("Low","Moderate","High")
-  )
 }
 
 # QC
