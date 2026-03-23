@@ -5,7 +5,7 @@ library(forcats)
 
 setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
 
-ukb <- readRDS("ukb_G1_Raw.rds")
+ukb <- readRDS("ukb_G1_raw.rds")
 
 ##############################################################################
 # Blood pressure cleanup + mean BP
@@ -87,23 +87,31 @@ print(table(ukb$urban_rural, ukb$urban_rural_2cat, useNA = "ifany"))
 ##############################################################################
 # Air pollution cleanup (2010)
 ##############################################################################
-
 if ("no_2010" %in% names(ukb)) {
   ukb$no_2010 <- NULL
 }
 
+if ("temp_average" %in% names(ukb)) {
+  if (is.character(ukb$temp_average)) ukb$temp_average <- as.numeric(ukb$temp_average)
+  ukb$temp_average[ukb$temp_average < -50 | ukb$temp_average > 60] <- NA
+}
+
 if ("no2_2010" %in% names(ukb)) {
+  if (is.character(ukb$no2_2010)) ukb$no2_2010 <- as.numeric(ukb$no2_2010)
   ukb$no2_2010[ukb$no2_2010 < 0] <- NA
 }
 
 if ("pm2_5_2010" %in% names(ukb)) {
+  if (is.character(ukb$pm2_5_2010)) ukb$pm2_5_2010 <- as.numeric(ukb$pm2_5_2010)
   ukb$pm2_5_2010[ukb$pm2_5_2010 < 0] <- NA
 }
 
 if ("pm10_2010" %in% names(ukb)) {
+  if (is.character(ukb$pm10_2010)) ukb$pm10_2010 <- as.numeric(ukb$pm10_2010)
   ukb$pm10_2010[ukb$pm10_2010 < 0] <- NA
 }
 
+if ("temp_average" %in% names(ukb)) print(summary(ukb$temp_average))
 if ("no2_2010" %in% names(ukb)) print(summary(ukb$no2_2010))
 if ("pm2_5_2010" %in% names(ukb)) print(summary(ukb$pm2_5_2010))
 if ("pm10_2010" %in% names(ukb)) print(summary(ukb$pm10_2010))
@@ -147,7 +155,8 @@ biomarkers_num <- c(
   "total_bilirubin","total_blood_protein","total_triglyceride",
   "urate","blood_vitamin_d","crp","lipoprotein_a",
   "ldl_cholesterol","hdl_cholesterol",
-  "apolipoprotein_a","apolipoprotein_b"   # <- add
+  "apolipoprotein_a","apolipoprotein_b",
+  "cholesterol","creatinine_in_urine"
 )
 
 biomarkers_num <- biomarkers_num[biomarkers_num %in% names(ukb)]
@@ -498,9 +507,9 @@ recode_alcohol <- function(df, alcohol_status = "alcohol_status", alcohol_freq =
         
         # If either column is NA, the combined result should be NA
         is.na(.data[[alcohol_status]]) | is.na(.data[[alcohol_freq]]) ~ NA_character_,
-      
+        
         TRUE ~ paste(.data[[alcohol_status]], .data[[alcohol_freq]], sep = ": ")
-    ))
+      ))
   
   return(df)
 }
@@ -631,7 +640,7 @@ recode_saturated_fat <- function(df,
         (max_vals["proc"] * !is.na(proc_val)) +
         (max_vals["cheese"] * !is.na(cheese_val)) +
         (max_vals["milk"] * !is.na(milk_val)),
-    
+      
       sf_score = if_else(n_valid >= 3, (sum_achieved / sum_max_possible) * total_max, NA_real_)
     ) %>%
     
@@ -741,7 +750,7 @@ recode_mental_health <- function(df,
     "Very happy" = 4, "Extremely happy" = 5, "Extremely happy/Other" = 6,
     "Prefer not to answer" = NA, "Do not know" = NA
   )
-
+  
   cat_matrix <- cbind(
     happiness = cat_map[as.character(df[[happiness]])], 
     work      = cat_map[as.character(df[[work]])], 
@@ -974,14 +983,14 @@ ukb <- ukb %>%
       job_shift_work_clean
     ),
     
-# 2) Only employed participants should have exposure values, other set to NA
+    # 2) Only employed participants should have exposure values, other set to NA
     job_shift_work_clean = if_else(
       employment_2cat == "In paid employment",
       job_shift_work_clean,
       NA_character_
     ),
     
-# 3) Convert final result to factor
+    # 3) Convert final result to factor
     job_shift_work_clean = factor(job_shift_work_clean)
   )
 
@@ -990,13 +999,13 @@ ukb <- ukb %>%
 # OPTION: Simplify to a binary indicator ever_nights
 # ------------------------------------------------------------
 ukb <- ukb %>%
- mutate(
-   ever_nights = case_when(
-     is.na(job_shift_work_clean) ~ NA,
-     job_shift_work_clean == "Never/rarely" ~ 0,
-     TRUE ~ 1
-   )
- )
+  mutate(
+    ever_nights = case_when(
+      is.na(job_shift_work_clean) ~ NA,
+      job_shift_work_clean == "Never/rarely" ~ 0,
+      TRUE ~ 1
+    )
+  )
 
 
 
@@ -1049,14 +1058,14 @@ ukb <- ukb %>%
     work_hours_unified_cat = case_when(
       employment_2cat == "In paid employment" &
         !is.na(work_hours_exact_binned) ~ work_hours_exact_binned,
-
+      
       employment_2cat == "In paid employment" &
         is.na(work_hours_exact_binned) &
         !is.na(work_hours_cat_clean) ~ work_hours_cat_clean,
-
+      
       TRUE ~ NA_character_
     ),
-
+    
     work_hours_unified_cat = factor(
       work_hours_unified_cat,
       levels = c("15–<20", "20–<30", "30–40", ">40"),
@@ -1153,7 +1162,7 @@ ukb <- ukb %>%
 # 2. Oral Contraception
 ## Set male results all to "No", then "Prefer not to answer" and "Do not know" to NA
 ukb <- ukb %>%
-mutate(
+  mutate(
     oral_contraception = as.character(oral_contraception),
     oral_contraception = case_when(
       sex == "Male" ~ "No",
@@ -1161,7 +1170,7 @@ mutate(
       oral_contraception == "Do not know"           ~ NA_character_,
       TRUE                                          ~ oral_contraception
     ),
-        oral_contraception = as.factor(oral_contraception)
+    oral_contraception = as.factor(oral_contraception)
   )
 
 table(ukb$sex, ukb$oral_contraception, useNA = "always")
@@ -1170,7 +1179,7 @@ table(ukb$sex, ukb$oral_contraception, useNA = "always")
 # 3. HRT
 ## Set male results all to "No", then "Prefer not to answer" and "Do not know" to NA
 ukb <- ukb %>%
-mutate(
+  mutate(
     hrt = as.character(hrt),
     hrt = case_when(
       sex == "Male" ~ "No",
@@ -1178,7 +1187,7 @@ mutate(
       hrt == "Do not know"           ~ NA_character_,
       TRUE                                          ~ hrt
     ),
-        hrt = as.factor(hrt)
+    hrt = as.factor(hrt)
   )
 
 table(ukb$sex, ukb$hrt, useNA = "always")
@@ -1224,10 +1233,10 @@ check_icd <- function(df, icd10_list, icd9_list) {
         c(starts_with("primary_diagnoses_icd10.0."), starts_with("secondary_diagnoses_icd10.0.")),
         ~ substr(as.character(.), 1, 3) %in% icd10_list
       ) | 
-      if_any(
-        c(starts_with("primary_diagnoses_icd9.0."), starts_with("secondary_diagnoses_icd9.0.")),
-        ~ substr(as.character(.), 1, 3) %in% icd9_list
-      )
+        if_any(
+          c(starts_with("primary_diagnoses_icd9.0."), starts_with("secondary_diagnoses_icd9.0.")),
+          ~ substr(as.character(.), 1, 3) %in% icd9_list
+        )
     )
   return(dplyr::if_else(res$flag, "Yes", "No"))
 }
@@ -1252,7 +1261,7 @@ ukb <- ukb %>%
 ##############################################################################
 drop_cols <- c(
   "sys_bp_automatic","sbp_manual","dys_bp_automatic","dbp_manual",
-  "ethnicity","urban_rural","no_2010",
+  "ethnicity","urban_rural","no_2010","water_pct_1000m",
   "blood_sample_attempted","urine_device",
   "bipolar_depression_status","gp_anxiety_depression","diabetes_diagnosed",
   "birth_weight","tv_duration","tv_hours_day","total_met_minutes_weekly","total_met_min_wk",
@@ -1264,10 +1273,14 @@ drop_cols <- c(
   "happiness","work_satis","family_satis","friend_satis","fin_satis","mh_n_answered",
   "menopause","self_health_rating",
   "maternal_smoking","breastfed","pregnant","age_heart_attack_dx","health_satis",
-  "household_size","employment_status","job_shift_work","work_hours_week","work_hours_cat",
+  "household_size","employment_status",
+  "job_shift_work","day_shift","night_shift",
+  "work_hours_week","work_hours_cat",
   "imd_england","imd_scotland","imd_wales",
   "total_medications",
-  "oral_contraception","salt_intake","sodium_in_urine","cancer_reported"
+  "oral_contraception","salt_intake","sodium_in_urine","cancer_reported",
+  "oily_fish_intake","stress_count_2yr",
+  "cancer_first_dx"
 )
 
 drop_cols <- c(
@@ -1278,14 +1291,10 @@ drop_cols <- c(
   grep("^household_relationship", names(ukb), value = TRUE),
   grep("^employment_status", names(ukb), value = TRUE),
   grep("^(primary|secondary)_diagnoses_icd10\\.0\\.", names(ukb), value = TRUE),
-  grep("^(primary|secondary)_diagnoses_icd9\\.0\\.", names(ukb), value = TRUE),
-  grep("^cancer_first_dx\\.0\\.", names(ukb), value = TRUE)
+  grep("^(primary|secondary)_diagnoses_icd9\\.0\\.", names(ukb), value = TRUE)
 )
 
 ukb <- ukb %>% select(-any_of(drop_cols))
 
 # save
 saveRDS(ukb, "ukb_G1_preprocessed.rds")
-
-
-
