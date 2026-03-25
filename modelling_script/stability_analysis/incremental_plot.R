@@ -12,6 +12,26 @@ setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
 # stability_sex.R: prepare_xy()
 
 ################################################################################
+# 0. Maps a dummy term back to its parent variable
+#
+# This function takes a dummified variable name (e.g., "IMD_quintile3") and a list 
+# of original exposure names, returning the matching parent name (e.g., "IMD_quintile"). 
+# It sorts the exposures by length descending prior to matching to prevent false 
+# positive substring matching errors.
+################################################################################
+
+get_parent_var <- function(variable_prefix, exposures) {
+  
+  exposures <- exposures[order(-nchar(exposures))] 
+  
+  for (exposure in exposures) {
+    if (startsWith(variable_prefix, exposure)) return(exposure)
+  }
+  
+return(variable_prefix)
+}
+
+################################################################################
 # 1. Calculate Subset AUC
 #
 # This function extracts the specified variable columns from the design matrices, 
@@ -50,12 +70,31 @@ cal_auc <- function(y_tr, X_tr, y_te, X_te, stable_vars) {
 # based on their stability proportion, and applies the 1-SE rule to identify the optimal cutoff.
 ################################################################################
 cal_incremental_performance <- function(train_df, test_df, confounders, selected_csv_path, 
-                                        exposure_csv_path, group_by_domain) {
+                                        exposure_csv_path, extra_exposures = NULL, group_by_domain) {
+  
+  exposure_df <- read.csv(exposure_csv_path, stringsAsFactors = FALSE)
+  exposures <- exposure_df$exposure
+  
+  # Append any cohort-specific exposures (for the SBP cohort)
+  if (!is.null(extra_exposures)) {
+    exposures <- unique(c(exposures, extra_exposures))
+  }
+  
+  exposure_df <- data.frame(exposure = exposures, stringsAsFactors = FALSE)
   
   # Load and assign domains to the selected variables
-  sel_df <- read.csv(selected_csv_path, stringsAsFactors = FALSE) |> 
-    filter(selected == TRUE) |> 
+  sel_df <- read.csv(selected_csv_path, stringsAsFactors = FALSE) |>
+    filter(selected == TRUE) |>
     mutate(Domain = assign_domain(term))
+
+  # Apply mapping and aggregate by parent variable
+  sel_df$parent_var <- sapply(sel_df$term, get_parent_var, exposures = exposures)
+  
+  sel_df <- sel_df |> 
+    group_by(parent_var, Domain) |> 
+    # Use the max selection proportion among the dummy levels to determine the parent variable's rank
+    summarise(selection_proportion = max(selection_proportion), .groups = "drop") |> 
+    rename(term = parent_var)
   
   # Apply sorting logic based on the selected method (domain-grouped or overall)
   if (group_by_domain) {
@@ -65,7 +104,6 @@ cal_incremental_performance <- function(train_df, test_df, confounders, selected
   }
   
   # Prepare full matrices
-  exposure_df <- read.csv(exposure_csv_path, stringsAsFactors = FALSE)
   preds <- unique(c(confounders, exposure_df$exposure))
   
   xy <- prepare_xy(train_df, test_df, preds)
@@ -248,9 +286,20 @@ cohort_configs <- list(
     test = test_full,
     confounders = c("age", "sex", "ethnicity_5cat"),
     sel_csv = file.path(base_out_dir, "subsample_lasso_SBP", "selection_proportions_penalized.csv"),
-    exp_csv = file.path(base_out_dir, "subsample_lasso_SBP", "exposure_list.csv"),
+    exp_csv = file.path(base_out_dir, "subsample_lasso", "exposure_list.csv"),
     out_dir = file.path(base_out_dir, "subsample_lasso_SBP"),
-    suffix = "sbp"
+    suffix = "sbp",
+    extra_exposures = c("sbp_mean", "dbp_mean")
+  ),
+  
+  "BP Confounder" = list(
+    train = train_full, 
+    test = test_full,
+    confounders = c("age", "sex", "ethnicity_5cat", "sbp_mean", "dbp_mean"),
+    sel_csv = file.path(base_out_dir, "subsample_lasso_bp_confounder", "selection_proportions_penalized.csv"),
+    exp_csv = file.path(base_out_dir, "subsample_lasso", "exposure_list.csv"),
+    out_dir = file.path(base_out_dir, "subsample_lasso_bp_confounder"),
+    suffix = "bp_confounder"
   )
 )
 
@@ -272,7 +321,7 @@ for (cohort_name in names(cohort_configs)) {
   # 2. Grouped by Domain Analysis & Plotting
   res_grouped <- cal_incremental_performance(
     train_df = cfg$train, test_df = cfg$test, confounders = cfg$confounders,
-    selected_csv_path = cfg$sel_csv, exposure_csv_path = cfg$exp_csv, group_by_domain = TRUE
+    selected_csv_path = cfg$sel_csv, exposure_csv_path = cfg$exp_csv, extra_exposures = cfg$extra_exposures, group_by_domain = TRUE
   )
   plot_grouped <- create_incremental_plot(res_grouped, paste(cohort_name, "Cohort"), group_by_domain = TRUE)
   ggsave(file.path(cfg$out_dir, paste0("domain_incremental_", cfg$suffix, ".png")), plot_grouped, width = 10, height = calc_plot_height(res_grouped), dpi = 300)
@@ -280,7 +329,7 @@ for (cohort_name in names(cohort_configs)) {
   # 3. Overall Analysis & Plotting
   res_overall <- cal_incremental_performance(
     train_df = cfg$train, test_df = cfg$test, confounders = cfg$confounders,
-    selected_csv_path = cfg$sel_csv, exposure_csv_path = cfg$exp_csv, group_by_domain = FALSE
+    selected_csv_path = cfg$sel_csv, exposure_csv_path = cfg$exp_csv, extra_exposures = cfg$extra_exposures, group_by_domain = FALSE
   )
   plot_overall <- create_incremental_plot(res_overall, paste(cohort_name, "Cohort"), group_by_domain = FALSE)
   ggsave(file.path(cfg$out_dir, paste0("overall_incremental_", cfg$suffix, ".png")), plot_overall, width = 12, height = 6, dpi = 300)
