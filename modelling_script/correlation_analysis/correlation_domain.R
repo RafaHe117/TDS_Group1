@@ -57,21 +57,26 @@ biomarker_map <- data.frame(
     "wbc_count","rbc_count","hemoglobin","mcv","platelet_count","mpv",
     "lymphocyte_count","monocyte_count","neutrophil_count",
     "eosinophil_count","basophil_count","nrbc_count",
-    "creatinine","cystatin_c","urea","urate","microalbumin",
+    
+    "creatinine","cystatin_c","urea","urate","microalbumin","creatinine_in_urine",
     "albumin","alkaline_phosphatase",
     "alanine_aminotransferase","aspartate_aminotransferase",
     "direct_bilirubin","total_bilirubin","total_blood_protein",
+    
     "cholesterol","hdl_cholesterol","ldl_cholesterol",
     "lipoprotein_a","apolipoprotein_a","apolipoprotein_b",
     "total_triglyceride","glucose","hba1c","igf_1",
     "crp","blood_vitamin_d","calcium","phosphate"
   ),
+  
   field = "Biomarker",
+  
   biomarker_subgroup = c(
     rep("Haematology", 12),
-    rep("Renal_Liver_Protein", 12),
+    rep("Renal_Liver_Protein", 13),
     rep("Lipid_Metabolic_Inflammation", 14)
   ),
+  
   stringsAsFactors = FALSE
 )
 
