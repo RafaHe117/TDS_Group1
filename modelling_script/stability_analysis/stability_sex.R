@@ -343,6 +343,40 @@ run_stratified_stability <- function(train_sub, test_sub, sex_label, preds, conf
   )
   
   if (!is.null(final_fit)) {
+    
+    # =========================
+    # Extract OR and CI from refitted model
+    # =========================
+    coef_df <- summary(final_fit)$coefficients
+    
+    OR_df <- data.frame(
+      term = rownames(coef_df),
+      beta = coef_df[, 1],
+      SE = coef_df[, 2],
+      z_value = coef_df[, 3],
+      p_value = coef_df[, 4],
+      OR = exp(coef_df[, 1]),
+      CI_low = exp(coef_df[, 1] - 1.96 * coef_df[, 2]),
+      CI_high = exp(coef_df[, 1] + 1.96 * coef_df[, 2]),
+      stringsAsFactors = FALSE
+    ) |>
+      dplyr::filter(term != "(Intercept)") |>
+      dplyr::mutate(
+        sex_group = sex_label,
+        pretty_term = make_pretty_names(term)
+      ) |>
+      dplyr::arrange(desc(abs(beta)))
+    
+    write.csv(
+      OR_df,
+      file.path(out_dir, paste0("refit_OR_results_", tolower(sex_label), ".csv")),
+      row.names = FALSE
+    )
+    
+    cat("Refit OR results saved to:",
+        file.path(out_dir, paste0("refit_OR_results_", tolower(sex_label), ".csv")), "\n")
+    flush.console()
+    
     test_prob <- tryCatch(
       suppressWarnings(predict(final_fit, newdata = X_te_sel, type = "response")),
       error = function(e) rep(NA_real_, nrow(X_te_sel))

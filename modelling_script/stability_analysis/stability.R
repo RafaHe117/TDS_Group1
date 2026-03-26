@@ -363,6 +363,36 @@ final_fit <- tryCatch(
 )
 
 if (!is.null(final_fit)) {
+  
+  # Extract OR and CI
+  coef_df <- summary(final_fit)$coefficients
+  
+  OR_df <- data.frame(
+    term = rownames(coef_df),
+    beta = coef_df[,1],
+    SE = coef_df[,2],
+    p_value = coef_df[,4],
+    OR = exp(coef_df[,1]),
+    CI_low = exp(coef_df[,1] - 1.96 * coef_df[,2]),
+    CI_high = exp(coef_df[,1] + 1.96 * coef_df[,2]),
+    stringsAsFactors = FALSE
+  )
+  
+  OR_df <- OR_df |>
+    dplyr::filter(term != "(Intercept)") |>
+    dplyr::arrange(desc(abs(beta)))
+  
+  write.csv(
+    OR_df,
+    file.path(base_out_dir, "refit_OR_results.csv"),
+    row.names = FALSE
+  )
+  
+  cat("Refit OR results saved to:", file.path(base_out_dir, "refit_OR_results.csv"), "\n")
+  flush.console()
+  
+  
+  # Predict on test set
   test_prob <- tryCatch(
     suppressWarnings(predict(final_fit, newdata = X_te_sel, type = "response")),
     error = function(e) rep(NA_real_, nrow(X_te_sel))
