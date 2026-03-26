@@ -12,7 +12,7 @@ library(parallelly)
 # =========================
 setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
 
-base_out_dir <- "modelling_script/stability_analysis/subsample_lasso_SBP"
+base_out_dir <- "modelling_script/stability_analysis/subsample_lasso_bp_confounder"
 dir.create(base_out_dir, recursive = TRUE, showWarnings = FALSE)
 
 get_requested_cores <- function() {
@@ -50,7 +50,7 @@ y_te <- as.integer(test_df[[outcome]])
 # =========================
 # Define predictors (confounders and external exposomes)
 # =========================
-confounders <- c("age", "sex", "ethnicity_5cat")
+confounders <- c("age", "sex", "ethnicity_5cat", "sbp_mean", "dbp_mean")
 
 exposome_list <- c(
   "tv_group",
@@ -60,8 +60,6 @@ exposome_list <- c(
   "redwine_group",
   "salt_3cat",
   "education_2",
-  "sbp_mean",
-  "dbp_mean",
   "employment_2cat",
   "imd_quintile",
   "sf_score"
@@ -90,23 +88,6 @@ pattern_vars <- grep(pattern_regex, names(train_df), value = TRUE)
 vars <- unique(c(exposome_list, pattern_vars))
 vars <- vars[vars %in% names(train_df) & vars %in% names(test_df)]
 preds <- c(confounders, vars)
-
-# save final exposure list
-exposure_list_df <- data.frame(
-  exposure = vars,
-  stringsAsFactors = FALSE
-) |>
-  arrange(exposure)
-
-write.csv(
-  exposure_list_df,
-  file.path(base_out_dir, "exposure_list.csv"),
-  row.names = FALSE
-)
-
-cat("Number of exposure variables:", length(vars), "\n")
-cat("Exposure list saved to:", file.path(base_out_dir, "exposure_list.csv"), "\n")
-flush.console()
 
 # =========================
 # Prepare predictors
@@ -276,7 +257,7 @@ stab <- VariableSelection(
   resampling = "subsampling",
   tau = 0.5,
   n_cores = n_cores,
-  n_cat = 3  # use previous stability score definition (for comparability with earlier sharp versions)
+  n_cat = 3
 )
 
 saveRDS(
