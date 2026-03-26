@@ -1,0 +1,596 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+get_ipython().run_line_magic('pip', 'install pyreadr pandas numpy scikit-learn matplotlib shap xgboost catboost --target=$HOME/my_python_libs')
+
+
+# In[2]:
+
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+
+# Add custom library path and fix PYTHONPATH for worker processes
+custom_lib_path = os.path.expanduser('~/my_python_libs')
+if custom_lib_path not in sys.path:
+    sys.path.insert(1, custom_lib_path)
+os.environ['PYTHONPATH'] = f"{custom_lib_path}:{os.environ.get('PYTHONPATH', '')}"
+
+import pyreadr
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import shap
+import xgboost as xgb 
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.inspection import permutation_importance, PartialDependenceDisplay
+from sklearn.metrics import classification_report, roc_auc_score, RocCurveDisplay, PrecisionRecallDisplay, accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.calibration import CalibrationDisplay
+
+# 1. DATA LOADING & FILTERING
+DATA_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/split_imputed_data/ukb_G1_train_imputed.rds"
+EXPOSURE_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/modelling_script/stability_analysis/subsample_lasso/exposure_list.csv"
+TEST_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/split_imputed_data/ukb_G1_test_imputed.rds"
+
+
+# Load data
+train_data = pyreadr.read_r(DATA_PATH)[None]
+exposure_list = pd.read_csv(EXPOSURE_PATH)
+
+test_data = pyreadr.read_r(TEST_PATH)[None]
+
+
+# Whitelist variables based on the 'exposure' column in your CSV
+selected_features = exposure_list['exposure'].tolist()
+confounders_to_add = ['age', 'sex', 'ethnicity_5cat']
+selected_features.extend(confounders_to_add)
+
+existing_features = [feat for feat in selected_features if feat in train_data.columns]
+
+## OVERALL ANALYSIS
+
+#X_train = train_data[existing_features]
+#y_train = train_data['cvd_incident']
+
+#X_test = test_data[existing_features]
+#y_test = test_data['cvd_incident']
+
+
+## (MALE SUBGROUP ANALYSIS) Create a DataFrame containing only Male records (edit X_train, X_test, y_train, y_test from "train_data" to "male_data")
+#male_data_train = train_data[train_data['sex'] == 'Male'].copy()
+#male_data_test = test_data[test_data['sex'] == 'Male'].copy()
+#
+#X_train = male_data_train[existing_features]
+#y_train = male_data_train['cvd_incident']
+#
+#X_test = male_data_test[existing_features]
+#y_test = male_data_test['cvd_incident']
+
+## (FEMALE SUBGROUP ANALYSIS) Create a DataFrame containing only Female records (edit X_train, X_test, y_train, y_test from "train_data" to "female_data")
+female_data_train = train_data[train_data['sex'] == 'Female'].copy()
+female_data_test = test_data[test_data['sex'] == 'Female'].copy()
+
+X_train = female_data_train[existing_features]
+y_train = female_data_train['cvd_incident']
+
+X_test = female_data_test[existing_features]
+y_test = female_data_test['cvd_incident']
+
+
+print(f"Data Loaded. Features found: {len(existing_features)}/{len(selected_features)}")
+
+
+
+# In[3]:
+
+
+print(existing_features)
+
+
+# In[4]:
+
+
+# 2. PREPROCESSING SETUP
+
+# Define numeric and categorical feature lists based on X_train
+numeric_features = X_train.select_dtypes(include=['number']).columns.tolist()
+categorical_features = X_train.select_dtypes(exclude=['number']).columns.tolist()
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", StandardScaler(), numeric_features),
+        ("cat", OneHotEncoder(handle_unknown='ignore'), categorical_features),
+    ]
+)
+
+
+# In[5]:
+
+
+# 3. XGBOOST PIPELINE & GRID SEARCH
+xgb_pipeline = Pipeline(steps=[
+    ("preprocessor", preprocessor),
+    ("model", xgb.XGBClassifier(
+        random_state=42, 
+        eval_metric='logloss'
+    ))
+])
+
+# Calculate class weight strictly on the training set
+scale_weight = np.sum(y_train == 0) / np.sum(y_train == 1)
+
+xgb_param_grid = {
+    "model__n_estimators": [100, 200],
+    "model__max_depth": [3, 6],
+    "model__learning_rate": [0.01, 0.1],
+    "model__subsample": [0.8],
+    "model__scale_pos_weight": [scale_weight] 
+}
+
+xgb_grid = GridSearchCV(
+    estimator=xgb_pipeline,
+    param_grid=xgb_param_grid,
+    scoring="roc_auc",
+    cv=5,
+    n_jobs=16,
+    verbose=1
+)
+
+print("Starting XGBoost Training...")
+xgb_grid.fit(X_train, y_train)
+
+
+# In[6]:
+
+
+# 4. EVALUATION
+
+best_model = xgb_grid.best_estimator_
+y_pred = best_model.predict(X_test)
+y_prob = best_model.predict_proba(X_test)[:, 1]
+
+print(f"\n✅ Best CV ROC-AUC: {xgb_grid.best_score_:.4f}")
+print(f"Test ROC-AUC: {roc_auc_score(y_test, y_prob):.4f}")
+
+# Confusion Matrix
+ConfusionMatrixDisplay.from_estimator(best_model, X_test, y_test, cmap="Blues", values_format='d')
+plt.title("XGBoost - Confusion Matrix")
+plt.show()
+
+
+# In[7]:
+
+
+# convenience function to output evaluation metrics
+def evaluate_classifier(model, X_split, y_split):
+    y_pred = model.predict(X_split)
+    # Use positive-class probabilities for ROC AUC
+    y_pred_prob = model.predict_proba(X_split)[:, 1]
+
+    out = {
+        "accuracy": accuracy_score(y_split, y_pred),
+        "precision": precision_score(y_split, y_pred, zero_division=0),
+        "recall": recall_score(y_split, y_pred, zero_division=0),
+        "f1": f1_score(y_split, y_pred, zero_division=0),
+        "roc_auc": roc_auc_score(y_split, y_pred_prob),
+    }
+
+    return pd.DataFrame([out])
+
+
+# In[8]:
+
+
+xgb_test_metrics = evaluate_classifier(
+    xgb_grid.best_estimator_, X_test, y_test
+)
+
+display(xgb_test_metrics.style.hide(axis="index"))
+
+
+# In[9]:
+
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+# 1. ROC Curve
+RocCurveDisplay.from_estimator(best_model, X_test, y_test, ax=axes[0], name="XGBoost")
+axes[0].set_title("Receiver Operating Characteristic (ROC)")
+axes[0].plot([0, 1], [0, 1], linestyle="--", color="gray")
+
+# 2. Precision-Recall Curve
+PrecisionRecallDisplay.from_estimator(best_model, X_test, y_test, ax=axes[1], name="XGBoost")
+axes[1].set_title("Precision-Recall Curve")
+
+# 3. Calibration Curve
+CalibrationDisplay.from_estimator(best_model, X_test, y_test, n_bins=10, ax=axes[2], name="XGBoost")
+axes[2].set_title("Calibration Curve")
+
+plt.tight_layout()
+plt.show()
+
+
+# In[10]:
+
+
+def compute_all_feature_importance(
+    fitted_pipeline,
+    X_test,
+    y_test,
+    model_name="Model",
+    scoring="roc_auc",
+    n_repeats=20,
+    n_jobs=1,
+    random_state=42,
+    top_n=10,
+    show_plots=True,
+    columns_to_exclude=None, #Included so that age, sex, ethnicity can be included/excluded from plots
+):
+    ct = fitted_pipeline.named_steps["preprocessor"]
+    model = fitted_pipeline.named_steps["model"]
+    feature_names_transformed = pd.Index(ct.get_feature_names_out(), name="feature")
+
+    # ---------- Native ----------
+    if hasattr(model, "feature_importances_"):
+        native_s = pd.Series(
+            model.feature_importances_,
+            index=feature_names_transformed,
+            name="native_importance",
+        )
+    else:
+        native_s = pd.Series(
+            np.nan, index=feature_names_transformed, name="native_importance"
+        )
+
+    # ---------- Transform once ----------
+    X_test_t = ct.transform(X_test)
+
+    # ---------- Permutation on transformed (one-hot) feature space ----------
+    perm_ohe = permutation_importance(
+        estimator=model,
+        X=X_test_t,
+        y=y_test,
+        scoring=scoring,
+        n_repeats=n_repeats,
+        random_state=random_state,
+        n_jobs=n_jobs,
+    )
+    perm_ohe_mean_s = pd.Series(
+        perm_ohe.importances_mean,
+        index=feature_names_transformed,
+        name="perm_ohe_mean",
+    )
+
+    # ---------- SHAP ----------
+    shap_explainer = shap.TreeExplainer(model)
+    shap_raw = shap_explainer.shap_values(X_test_t)
+
+    if isinstance(shap_raw, list):
+        shap_class = shap_raw[1] if len(shap_raw) > 1 else shap_raw[0]
+    elif isinstance(shap_raw, np.ndarray) and shap_raw.ndim == 3:
+        shap_class = shap_raw[:, :, 1]
+    else:
+        shap_class = shap_raw
+
+    shap_s = pd.Series(
+        np.abs(shap_class).mean(axis=0),
+        index=feature_names_transformed,
+        name="shap_mean_abs",
+    )
+
+    # ---------- Single combined table ----------
+    importance_table = pd.concat(
+        [native_s, shap_s, perm_ohe_mean_s], axis=1
+    ).reset_index()
+
+    # Ranking
+    for col in ["native_importance", "shap_mean_abs", "perm_ohe_mean"]:
+        importance_table[f"rank_{col}"] = importance_table[col].rank(
+            ascending=False, method="min"
+        )
+
+    importance_table["rank_mean"] = importance_table[
+        ["rank_native_importance", "rank_shap_mean_abs", "rank_perm_ohe_mean"]
+    ].mean(axis=1, skipna=True)
+
+    importance_table = importance_table.sort_values(
+        "rank_mean", ascending=True
+    ).reset_index(drop=True)
+
+    # ---------- Plots ----------
+    if show_plots:
+
+        # 1. Establish the exclusion logic
+        if columns_to_exclude is not None:
+            # Note: If your preprocessor modifies column names (e.g., adding 'remainder__'), 
+            # ensure columns_to_exclude matches the transformed names.
+            keep_mask_df = ~importance_table["feature"].isin(columns_to_exclude)
+            keep_indices = np.where(~feature_names_transformed.isin(columns_to_exclude))[0]
+        else:
+            keep_mask_df = pd.Series(True, index=importance_table.index)
+            keep_indices = np.arange(len(feature_names_transformed))
+
+        # Native Plot
+        native_plot = (
+            importance_table[keep_mask_df] # Apply filter here
+            .dropna(subset=["native_importance"])
+            .nlargest(top_n, "native_importance")
+            .iloc[::-1]
+        )
+        fig1, ax1 = plt.subplots(figsize=(10, 6))
+        ax1.barh(native_plot["feature"], native_plot["native_importance"])
+        ax1.set_title(f"{model_name} - Native Importance (Train, Top {top_n})")
+        ax1.set_xlabel("Importance")
+        ax1.grid(axis="x", alpha=0.2)
+        plt.tight_layout()
+        plt.show()
+
+        # Permutation Plot
+        perm_means_filtered = perm_ohe.importances_mean.copy()
+        # Set excluded feature means to negative infinity so they are never in top_n
+        perm_means_filtered[~np.isin(np.arange(len(perm_means_filtered)), keep_indices)] = -np.inf
+        ohe_idx = np.argsort(perm_means_filtered)[-top_n:]
+
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        ax2.boxplot(
+            perm_ohe.importances[ohe_idx].T,
+            vert=False,
+            tick_labels=feature_names_transformed[ohe_idx],
+        )
+        ax2.set_title(
+            f"{model_name} - Permutation Importance (Test, {scoring}, transformed)"
+        )
+        ax2.set_xlabel(f"Decrease in {scoring}")
+        plt.tight_layout()
+        plt.show()
+
+        # SHAP Plots
+        # Slice arrays to only include the features we wish to keep
+        shap_class_filtered = shap_class[:, keep_indices]
+        feature_names_filtered = feature_names_transformed[keep_indices]
+
+        # Safely slice X_test_t depending on its data type (sparse matrix vs dense array)
+        if hasattr(X_test_t, "toarray"):
+            X_test_t_filtered = X_test_t.toarray()[:, keep_indices]
+        elif isinstance(X_test_t, pd.DataFrame):
+            X_test_t_filtered = X_test_t.iloc[:, keep_indices]
+        else:
+            X_test_t_filtered = X_test_t[:, keep_indices]
+
+        shap.summary_plot(
+            shap_class_filtered,
+            X_test_t_filtered,
+            feature_names=feature_names_filtered,
+            plot_type="bar",
+        )
+        shap.summary_plot(
+            shap_class_filtered,
+            X_test_t_filtered,
+            feature_names=feature_names_filtered,
+        )
+
+    return importance_table
+
+
+# In[11]:
+
+
+# 1. Access the best pipeline from the grid search, then extract the preprocessor
+best_pipeline = xgb_grid.best_estimator_
+ct = best_pipeline.named_steps["preprocessor"]
+
+# 2. Extract the transformed feature names
+transformed_features = ct.get_feature_names_out()
+
+# 3. Define the original column names you wish to exclude
+# (Replace these with your actual column names)
+original_cols = ['age', 'sex', 'ethnicity_5cat']
+
+# 4. Automatically find all transformed variations of those columns
+columns_to_exclude = [
+    feat for feat in transformed_features
+    if feat.startswith("num__age")
+    or feat.startswith("cat__sex")
+    or feat.startswith("cat__ethnicity")
+]
+
+print("Exact columns to exclude:")
+print(columns_to_exclude)
+
+
+# In[12]:
+
+
+# Combined feature-importance workflow for HistGB
+gb_imp = compute_all_feature_importance(
+    fitted_pipeline=xgb_grid.best_estimator_,
+    X_test=X_test,
+    y_test=y_test,
+    model_name="Gradient Boosting",
+    n_jobs=16,
+)
+
+
+# In[13]:
+
+
+# Combined feature-importance workflow for HistGB
+gb_imp = compute_all_feature_importance(
+    fitted_pipeline=xgb_grid.best_estimator_,
+    X_test=X_test,
+    y_test=y_test,
+    model_name="Gradient Boosting",
+    n_jobs=16,
+    columns_to_exclude=columns_to_exclude
+)
+
+
+# In[14]:
+
+
+display(gb_imp.style.hide(axis="index"))
+
+
+# In[15]:
+
+
+def compute_aggregated_feature_importance(
+    fitted_pipeline,
+    X_test_original,
+    y_test,
+    model_name="XGBoost (Aggregated)",
+    scoring="roc_auc",
+    n_repeats=10,
+    top_n=10,
+    columns_to_exclude=None
+):
+    """
+    Computes and plots feature importances mapping dummy variables back to their 
+    original categorical parent features.
+    """
+    print(f"Calculating aggregated feature importances for {model_name}...")
+
+    ct = fitted_pipeline.named_steps["preprocessor"]
+    model = fitted_pipeline.named_steps["model"]
+
+    transformed_features = ct.get_feature_names_out()
+    original_features = X_test_original.columns.tolist()
+
+    # 1. Create Mapping Dictionary (Transformed -> Original)
+    mapping = {}
+    for tf in transformed_features:
+        matched = False
+        # Check against original features, sorting by length to avoid partial matches
+        for orig in sorted(original_features, key=len, reverse=True):
+            if f"__{orig}_" in tf or tf.endswith(f"__{orig}"):
+                mapping[tf] = orig
+                matched = True
+                break
+        if not matched:
+            mapping[tf] = tf
+
+    # 2. Aggregated Native Importance
+    if hasattr(model, "feature_importances_"):
+        native_raw = pd.Series(model.feature_importances_, index=transformed_features)
+        native_df = pd.DataFrame({"native": native_raw})
+        native_df["original_feature"] = native_df.index.map(mapping)
+        native_s = native_df.groupby("original_feature")["native"].sum().rename("native_importance")
+    else:
+        native_s = pd.Series(np.nan, index=original_features, name="native_importance")
+
+    # 3. Permutation Importance (Evaluated on Original Pipeline)
+    perm = permutation_importance(
+        estimator=fitted_pipeline,
+        X=X_test_original,
+        y=y_test,
+        scoring=scoring,
+        n_repeats=n_repeats,
+        random_state=42,
+        n_jobs=-1
+    )
+    perm_s = pd.Series(perm.importances_mean, index=original_features, name="perm_mean")
+
+    # 4. Aggregated SHAP Values
+    X_test_t = ct.transform(X_test_original)
+    shap_explainer = shap.TreeExplainer(model)
+    shap_raw = shap_explainer.shap_values(X_test_t)
+
+    if isinstance(shap_raw, list):
+        shap_class = shap_raw[1] if len(shap_raw) > 1 else shap_raw[0]
+    elif isinstance(shap_raw, np.ndarray) and shap_raw.ndim == 3:
+        shap_class = shap_raw[:, :, 1]
+    else:
+        shap_class = shap_raw
+
+    shap_df = pd.DataFrame(shap_class, columns=transformed_features)
+    shap_grouped_df = shap_df.rename(columns=mapping).T.groupby(level=0).sum().T
+    shap_s = pd.Series(
+        np.abs(shap_grouped_df.values).mean(axis=0), 
+        index=shap_grouped_df.columns, 
+        name="shap_mean_abs"
+    )
+
+    # 5. Consolidate and Rank
+    importance_table = pd.concat([native_s, shap_s, perm_s], axis=1).reset_index()
+    importance_table.rename(columns={"index": "feature"}, inplace=True)
+
+    for col in ["native_importance", "shap_mean_abs", "perm_mean"]:
+        importance_table[f"rank_{col}"] = importance_table[col].rank(ascending=False, method="min")
+
+    importance_table["rank_mean"] = importance_table[
+        ["rank_native_importance", "rank_shap_mean_abs", "rank_perm_mean"]
+    ].mean(axis=1)
+
+    importance_table = importance_table.sort_values("rank_mean", ascending=True).reset_index(drop=True)
+
+    # 6. Apply Exclusions and Plot
+    if columns_to_exclude is not None:
+        keep_mask = ~importance_table["feature"].isin(columns_to_exclude)
+        plot_table = importance_table[keep_mask]
+        features_to_keep = plot_table["feature"].tolist()
+    else:
+        plot_table = importance_table
+        features_to_keep = plot_table["feature"].tolist()
+
+    # --- Plot: Native Importance ---
+    native_plot = plot_table.nlargest(top_n, "native_importance").iloc[::-1]
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.barh(native_plot["feature"], native_plot["native_importance"], color='steelblue')
+    ax.set_title(f"{model_name} - Aggregated Native Importance (Top {top_n})")
+    ax.set_xlabel("Aggregated Importance Score")
+    ax.grid(axis="x", alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    # --- Plot: SHAP Summary ---
+    shap_grouped_filtered = shap_grouped_df[features_to_keep]
+
+    # Create categorical codes for SHAP beeswarm colors
+    X_test_display = X_test_original[features_to_keep].copy()
+    for col in X_test_display.select_dtypes(exclude=['number']).columns:
+        X_test_display[col] = X_test_display[col].astype('category').cat.codes
+
+    plt.figure(figsize=(10, 6))
+    plt.title(f"{model_name} - Aggregated SHAP Summary")
+    shap.summary_plot(
+        shap_grouped_filtered.values, 
+        X_test_display, 
+        feature_names=shap_grouped_filtered.columns,
+        plot_type="bar",
+        show=False
+    )
+    plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.title(f"{model_name} - Aggregated SHAP Beeswarm")
+    shap.summary_plot(
+        shap_grouped_filtered.values, 
+        X_test_display, 
+        feature_names=shap_grouped_filtered.columns,
+        show=False
+    )
+    plt.show()
+
+    return importance_table
+
+# Execute the function using your existing pipeline and test data
+original_cols_to_exclude = ['age', 'sex', 'ethnicity_5cat']
+
+aggregated_imp_df = compute_aggregated_feature_importance(
+    fitted_pipeline=xgb_grid.best_estimator_,
+    X_test_original=X_test,
+    y_test=y_test,
+    model_name="XGBoost",
+    columns_to_exclude=original_cols_to_exclude
+)
+
+display(aggregated_imp_df.style.hide(axis="index"))
+
