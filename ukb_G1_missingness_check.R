@@ -1,5 +1,5 @@
 library(ggplot2)
-library(reshape2)
+library(tidyr)
 
 setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
 
@@ -41,8 +41,15 @@ missingness_heatmap <- function(df, bin_size = 100, fig_name) {
   # Density calculation
   agg_matrix <- rowsum(na_matrix, row_indices) / bin_size
   
-  # Data reshaping
-  long_data <- melt(agg_matrix, varnames = c("Row_Bin", "Feature"))
+  # Data reshaping using tidyr
+  agg_df <- as.data.frame(agg_matrix)
+  agg_df$Row_Bin <- as.integer(rownames(agg_df))
+  
+  long_data <- tidyr::pivot_longer(agg_df, cols = -Row_Bin, names_to = "Feature",  values_to = "value")
+  
+  # Generate a matching CSV filename and export the plotting data
+  csv_name <- sub("\\.png$", ".csv", fig_name)
+  write.csv(long_data, file.path("figure", csv_name), row.names = FALSE)
   
   p <- ggplot(long_data, aes(x = Feature, y = Row_Bin, fill = value)) +
     geom_raster() +
