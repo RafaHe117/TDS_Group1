@@ -326,6 +326,8 @@ for (cohort_name in names(cohort_configs)) {
   plot_grouped <- create_incremental_plot(res_grouped, paste(cohort_name, "Cohort"), group_by_domain = TRUE)
   ggsave(file.path(cfg$out_dir, paste0("domain_incremental_", cfg$suffix, ".png")), plot_grouped, width = 10, height = calc_plot_height(res_grouped), dpi = 300)
   
+  write.csv(res_grouped, file.path(cfg$out_dir, paste0("domain_incremental_data_", cfg$suffix, ".csv")), row.names = FALSE)
+  
   # 3. Overall Analysis & Plotting
   res_overall <- cal_incremental_performance(
     train_df = cfg$train, test_df = cfg$test, confounders = cfg$confounders,
@@ -333,6 +335,8 @@ for (cohort_name in names(cohort_configs)) {
   )
   plot_overall <- create_incremental_plot(res_overall, paste(cohort_name, "Cohort"), group_by_domain = FALSE)
   ggsave(file.path(cfg$out_dir, paste0("overall_incremental_", cfg$suffix, ".png")), plot_overall, width = 12, height = 6, dpi = 300)
+  
+  write.csv(res_overall, file.path(cfg$out_dir, paste0("overall_incremental_data_", cfg$suffix, ".csv")), row.names = FALSE)
   
   # 4. Extract Metrics for Summary
   summary_rows[[cohort_name]] <- data.frame(
