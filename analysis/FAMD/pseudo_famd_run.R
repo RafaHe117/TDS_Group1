@@ -10,14 +10,17 @@
 #   - pseudo_famd1b: baseline + alcohol sensitivity
 #   - pseudo_famd2: biological supplementary
 #
-# For each version, export 5 plots:
-#   1. scree
-#   2. individuals by outcome
-#   3. individuals by sex
-#   4. contribution PC1
-#   5. contribution PC2
+# For each version, export:
+#   1. scree plot PNG
+#   2. individuals by outcome PNG
+#   3. individuals by sex PNG
+#   4. contribution PC1 PNG
+#   5. contribution PC2 PNG
 #
-# Total output = 2 datasets x 3 versions x 5 plots = 30 PNGs
+# And CSV outputs needed to regenerate the figures:
+#   - variance explained
+#   - individual scores with colouring variables
+#   - variable contributions for PC1 / PC2
 #
 # IMPORTANT
 # - Scatter axes are labelled as PC1 (xx.x%), PC2 (yy.y%)
@@ -26,6 +29,7 @@
 
 suppressPackageStartupMessages({
   library(ggplot2)
+  library(readr)
 })
 
 # -----------------------------
@@ -87,6 +91,12 @@ assert_has_vars <- function(df, vars, context = "") {
 save_png <- function(p, outpath, width = 8, height = 6, dpi = 300) {
   dir.create(dirname(outpath), recursive = TRUE, showWarnings = FALSE)
   ggsave(outpath, plot = p, width = width, height = height, dpi = dpi)
+  message("Saved: ", outpath)
+}
+
+save_csv <- function(df, outpath) {
+  dir.create(dirname(outpath), recursive = TRUE, showWarnings = FALSE)
+  write_csv(df, outpath)
   message("Saved: ", outpath)
 }
 
@@ -239,6 +249,64 @@ plot_top_contrib <- function(contrib_df, prefix, pc_label, top_n = 20) {
     theme_bw()
 }
 
+save_version_csvs <- function(pca, df, ok, prep, prefix, outdir_dataset) {
+  var_expl <- 100 * (pca$sdev^2) / sum(pca$sdev^2)
+  
+  variance_df <- data.frame(
+    dataset = basename(outdir_dataset),
+    version = prefix,
+    PC = seq_along(var_expl),
+    variance_explained_percent = var_expl,
+    stringsAsFactors = FALSE
+  )
+  
+  scores_df <- data.frame(
+    dataset = basename(outdir_dataset),
+    version = prefix,
+    row_index_original = which(ok),
+    PC1 = pca$x[, 1],
+    PC2 = pca$x[, 2],
+    cvd_incident = df[[COLOR_BY_OUTCOME]][ok],
+    sex = df[[COLOR_BY_SEX]][ok],
+    stringsAsFactors = FALSE
+  )
+  
+  load1 <- pca$rotation[, 1]
+  load2 <- pca$rotation[, 2]
+  
+  contrib_pc1_df <- aggregate_contrib(load1, prep$cont_vars, prep$cat_vars, prep$mm_cols)
+  contrib_pc1_df$dataset <- basename(outdir_dataset)
+  contrib_pc1_df$version <- prefix
+  contrib_pc1_df$PC <- "PC1"
+  contrib_pc1_df <- contrib_pc1_df[, c("dataset", "version", "PC", "variable", "contrib")]
+  
+  contrib_pc2_df <- aggregate_contrib(load2, prep$cont_vars, prep$cat_vars, prep$mm_cols)
+  contrib_pc2_df$dataset <- basename(outdir_dataset)
+  contrib_pc2_df$version <- prefix
+  contrib_pc2_df$PC <- "PC2"
+  contrib_pc2_df <- contrib_pc2_df[, c("dataset", "version", "PC", "variable", "contrib")]
+  
+  save_csv(
+    variance_df,
+    file.path(outdir_dataset, paste0(prefix, "_variance_explained.csv"))
+  )
+  
+  save_csv(
+    scores_df,
+    file.path(outdir_dataset, paste0(prefix, "_scores.csv"))
+  )
+  
+  save_csv(
+    contrib_pc1_df,
+    file.path(outdir_dataset, paste0(prefix, "_contrib_pc1.csv"))
+  )
+  
+  save_csv(
+    contrib_pc2_df,
+    file.path(outdir_dataset, paste0(prefix, "_contrib_pc2.csv"))
+  )
+}
+
 run_one_version <- function(df, cont_vars, cat_vars, prefix, outdir_dataset) {
   vars_needed <- unique(c(cont_vars, cat_vars, COLOR_BY_OUTCOME, COLOR_BY_SEX))
   assert_has_vars(df, vars_needed, context = prefix)
@@ -257,6 +325,16 @@ run_one_version <- function(df, cont_vars, cat_vars, prefix, outdir_dataset) {
   scores <- pca$x
   outcome_vec <- df[[COLOR_BY_OUTCOME]][ok]
   sex_vec     <- df[[COLOR_BY_SEX]][ok]
+  
+  # Save CSVs needed to regenerate figures
+  save_version_csvs(
+    pca = pca,
+    df = df,
+    ok = ok,
+    prep = prep,
+    prefix = prefix,
+    outdir_dataset = outdir_dataset
+  )
   
   # 1) scree
   save_png(
