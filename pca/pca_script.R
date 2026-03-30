@@ -2,7 +2,7 @@
 # PCA on Continuous Variables 
 # =============================================================================
 # Run AFTER: imputation/ukb_G1_imputed.rds has been created
-# Input:  imputation/ukb_G1_imputed_final.rds
+# Input:  /ukb_G1_imputed_final.rds
 # Outputs:
 #   pca/pca_result.rds            — full PCA object
 #   pca/pca_scaled_data.rds       — standardised data matrix
@@ -179,3 +179,52 @@ heatmap_plot <- ggplot(loading_long, aes(x = PC, y = Variable, fill = Loading)) 
 ggsave(file.path(out_dir, "pca_loadings_heatmap.png"),
        heatmap_plot, width = 8, height = 12, dpi = 120)
 
+
+# Export CSVs — for downstream plotting without re-running PCA
+
+# a. Scree data — variance explained per PC (all PCs)
+scree_csv <- data.frame(
+  PC                  = paste0("PC", seq_along(var_pct)),
+  SD                  = round(pca_result$sdev, 4),
+  Proportion_Variance = round(var_pct / 100, 6),
+  Cumulative_Variance = round(cumsum(var_pct) / 100, 6)
+)
+write.csv(scree_csv,
+          file.path(out_dir, "pca_scree_data.csv"),
+          row.names = FALSE)
+
+# b. Full loadings matrix — all variables x all PCs
+loadings_csv <- as.data.frame(pca_result$rotation)
+loadings_csv <- tibble::rownames_to_column(loadings_csv, "Variable")
+write.csv(loadings_csv,
+          file.path(out_dir, "pca_loadings_all.csv"),
+          row.names = FALSE)
+
+# c. Top 10 loadings per PC — long format, easy to filter by PC
+top_loadings_list <- lapply(paste0("PC", 1:n_pcs), function(pc) {
+  abs_load        <- abs(pca_result$rotation[, pc])
+  top10_names     <- names(sort(abs_load, decreasing = TRUE))[1:10]
+  data.frame(
+    PC       = pc,
+    Rank     = 1:10,
+    Variable = top10_names,
+    Loading  = round(pca_result$rotation[top10_names, pc], 4)
+  )
+})
+top_loadings_csv <- do.call(rbind, top_loadings_list)
+write.csv(top_loadings_csv,
+          file.path(out_dir, "pca_top10_loadings.csv"),
+          row.names = FALSE)
+
+# d. PC scores — one row per participant, one column per PC
+pc_scores_csv <- as.data.frame(pca_result$x)
+pc_scores_csv <- tibble::rownames_to_column(pc_scores_csv, "row_id")
+write.csv(pc_scores_csv,
+          file.path(out_dir, "pca_scores.csv"),
+          row.names = FALSE)
+
+cat("\nCSVs saved:\n")
+cat("  pca_scree_data.csv      — variance explained per PC\n")
+cat("  pca_loadings_all.csv    — full loadings matrix (all variables x all PCs)\n")
+cat("  pca_top10_loadings.csv  — top 10 loadings per PC in long format\n")
+cat("  pca_scores.csv          — PC scores per participant\n")
