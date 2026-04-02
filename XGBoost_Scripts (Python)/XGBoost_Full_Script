@@ -1,0 +1,406 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+#!/usr/bin/env python
+# coding: utf-8
+
+"""
+Prerequisites:
+Ensure the following packages are installed in your environment:
+pip install pyreadr pandas numpy scikit-learn matplotlib shap xgboost catboost openpyxl
+"""
+
+import os
+import sys
+import json
+from pathlib import Path
+
+# ==========================================
+# 0. ENVIRONMENT SETUP
+# ==========================================
+custom_lib_path = os.path.expanduser('~/my_python_libs')
+if custom_lib_path not in sys.path:
+    sys.path.insert(1, custom_lib_path)
+os.environ['PYTHONPATH'] = f"{custom_lib_path}:{os.environ.get('PYTHONPATH', '')}"
+
+import pyreadr
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import shap
+import xgboost as xgb 
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.inspection import permutation_importance
+from sklearn.metrics import (
+    roc_auc_score, roc_curve, precision_score, confusion_matrix
+)
+from IPython.display import display
+
+# ==========================================
+# 1. DATA LOADING & FILTERING
+# ==========================================
+DATA_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/split_imputed_data/ukb_G1_train_imputed.rds"
+EXPOSURE_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/modelling_script/stability_analysis/subsample_lasso/exposure_list.csv"
+TEST_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/split_imputed_data/ukb_G1_test_imputed.rds"
+
+# Load data
+train_data = pyreadr.read_r(DATA_PATH)[None]
+test_data = pyreadr.read_r(TEST_PATH)[None]
+exposure_list = pd.read_csv(EXPOSURE_PATH)
+
+# Whitelist variables based on the 'exposure' column
+selected_features = exposure_list['exposure'].tolist()
+confounders_to_add = ['age', 'sex', 'ethnicity_5cat']
+selected_features.extend(confounders_to_add)
+
+existing_features = [feat for feat in selected_features if feat in train_data.columns]
+print(f"Data Loaded. Features found: {len(existing_features)}/{len(selected_features)}")
+
+# --- Setup Subgroups ---
+datasets = {
+    "Overall": (
+        train_data[existing_features], test_data[existing_features], 
+        train_data['cvd_incident'], test_data['cvd_incident']
+    ),
+    "Male": (
+        train_data[train_data['sex'] == 'Male'][existing_features], 
+        test_data[test_data['sex'] == 'Male'][existing_features], 
+        train_data[train_data['sex'] == 'Male']['cvd_incident'], 
+        test_data[test_data['sex'] == 'Male']['cvd_incident']
+    ),
+    "Female": (
+        train_data[train_data['sex'] == 'Female'][existing_features], 
+        test_data[test_data['sex'] == 'Female'][existing_features], 
+        train_data[train_data['sex'] == 'Female']['cvd_incident'], 
+        test_data[test_data['sex'] == 'Female']['cvd_incident']
+    )
+}
+
+# ==========================================
+# 2. MODEL TRAINING & EVALUATION FUNCTIONS
+# ==========================================
+def train_xgboost(X_tr, y_tr, model_name):
+    print(f"\n--- Training {model_name} Model ---")
+
+    numeric_features = X_tr.select_dtypes(include=['number']).columns.tolist()
+    categorical_features = X_tr.select_dtypes(exclude=['number']).columns.tolist()
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", StandardScaler(), numeric_features),
+            ("cat", OneHotEncoder(handle_unknown='ignore'), categorical_features),
+        ]
+    )
+
+    xgb_pipeline = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("model", xgb.XGBClassifier(random_state=42, eval_metric='logloss'))
+    ])
+
+    scale_weight = np.sum(y_tr == 0) / np.sum(y_tr == 1)
+
+    xgb_param_grid = {
+        "model__n_estimators": [100, 200],
+        "model__max_depth": [3, 6],
+        "model__learning_rate": [0.01, 0.1],
+        "model__subsample": [0.8],
+        "model__scale_pos_weight": [scale_weight] 
+    }
+
+    xgb_grid = GridSearchCV(
+        estimator=xgb_pipeline,
+        param_grid=xgb_param_grid,
+        scoring="roc_auc",
+        cv=5,
+        n_jobs=-1,
+        verbose=1
+    )
+
+    xgb_grid.fit(X_tr, y_tr)
+    print(f"{model_name} Best CV ROC-AUC: {xgb_grid.best_score_:.4f}")
+    return xgb_grid.best_estimator_
+
+def evaluate_performance(model, X_te, y_te, name):
+    y_pred = model.predict(X_te)
+    y_prob = model.predict_proba(X_te)[:, 1]
+
+    tn, fp, fn, tp = confusion_matrix(y_te, y_pred).ravel()
+
+    sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+    precision = precision_score(y_te, y_pred, zero_division=0)
+    auc = roc_auc_score(y_te, y_prob)
+
+    return pd.Series({
+        "Model": name,
+        "Sensitivity (Recall)": round(sensitivity, 4),
+        "Specificity": round(specificity, 4),
+        "Precision": round(precision, 4),
+        "ROC AUC": round(auc, 4)
+    })
+
+def compute_aggregated_feature_importance(fitted_pipeline, X_test_original, y_test, model_name="Model", scoring="roc_auc", n_repeats=10):
+    print(f"\nCalculating aggregated feature importances for {model_name}...")
+
+    ct = fitted_pipeline.named_steps["preprocessor"]
+    model = fitted_pipeline.named_steps["model"]
+
+    transformed_features = ct.get_feature_names_out()
+    original_features = X_test_original.columns.tolist()
+
+    # 1. Create Mapping Dictionary (Transformed -> Original)
+    mapping = {}
+    for tf in transformed_features:
+        matched = False
+        for orig in sorted(original_features, key=len, reverse=True):
+            if f"__{orig}_" in tf or tf.endswith(f"__{orig}"):
+                mapping[tf] = orig
+                matched = True
+                break
+        if not matched:
+            mapping[tf] = tf
+
+    # 2. Aggregated Native Importance
+    if hasattr(model, "feature_importances_"):
+        native_raw = pd.Series(model.feature_importances_, index=transformed_features)
+        native_df = pd.DataFrame({"native": native_raw})
+        native_df["original_feature"] = native_df.index.map(mapping)
+        native_s = native_df.groupby("original_feature")["native"].sum().rename("native_importance")
+    else:
+        native_s = pd.Series(np.nan, index=original_features, name="native_importance")
+
+    # 3. Permutation Importance
+    perm = permutation_importance(
+        estimator=fitted_pipeline, X=X_test_original, y=y_test,
+        scoring=scoring, n_repeats=n_repeats, random_state=42, n_jobs=-1
+    )
+    perm_s = pd.Series(perm.importances_mean, index=original_features, name="perm_mean")
+
+    # 4. Aggregated SHAP Values
+    X_test_t = ct.transform(X_test_original)
+    shap_successful = False
+
+    try:
+        shap_explainer = shap.TreeExplainer(model)
+        shap_raw = shap_explainer.shap_values(X_test_t)
+
+        if isinstance(shap_raw, list):
+            shap_class = shap_raw[1] if len(shap_raw) > 1 else shap_raw[0]
+        elif isinstance(shap_raw, np.ndarray) and shap_raw.ndim == 3:
+            shap_class = shap_raw[:, :, 1]
+        else:
+            shap_class = shap_raw
+
+        shap_df = pd.DataFrame(shap_class, columns=transformed_features)
+        shap_grouped_df = shap_df.rename(columns=mapping).T.groupby(level=0).sum().T
+        shap_s = pd.Series(
+            np.abs(shap_grouped_df.values).mean(axis=0), 
+            index=shap_grouped_df.columns, 
+            name="shap_mean_abs"
+        )
+        shap_successful = True
+    except Exception:
+        print(f"  -> Note: SHAP TreeExplainer skipped for {model_name}.")
+        shap_s = pd.Series(np.nan, index=original_features, name="shap_mean_abs")
+
+    # 5. Consolidate and Rank
+    importance_table = pd.concat([native_s, shap_s, perm_s], axis=1).reset_index()
+    importance_table.rename(columns={"index": "feature"}, inplace=True)
+
+    for col in ["native_importance", "shap_mean_abs", "perm_mean"]:
+        importance_table[f"rank_{col}"] = importance_table[col].rank(ascending=False, method="min")
+
+    importance_table["rank_mean"] = importance_table[
+        ["rank_native_importance", "rank_shap_mean_abs", "rank_perm_mean"]
+    ].mean(axis=1)
+
+    plot_table = importance_table.sort_values("rank_mean", ascending=True).reset_index(drop=True)
+    features_to_keep = plot_table["feature"].tolist()
+    dynamic_height = max(6.0, len(features_to_keep) * 0.35)
+
+    # --- Plotting ---
+    if not native_s.isna().all():
+        native_plot = plot_table.dropna(subset=['native_importance']).sort_values("native_importance", ascending=True)
+        fig, ax = plt.subplots(figsize=(10, dynamic_height))
+        ax.barh(native_plot["feature"], native_plot["native_importance"], color='steelblue')
+        ax.set_title(f"{model_name} - Aggregated Native Importance")
+        ax.set_xlabel("Aggregated Importance Score")
+        ax.grid(axis="x", alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(f"{model_name}_native_importance.svg", format="svg", bbox_inches="tight")
+        plt.close()
+
+    if shap_successful:
+        shap_grouped_filtered = shap_grouped_df[features_to_keep]
+        X_test_display = X_test_original[features_to_keep].copy()
+
+        for col in X_test_display.select_dtypes(exclude=['number']).columns:
+            X_test_display[col] = X_test_display[col].astype('category').cat.codes
+
+        # Bar Chart
+        plt.figure(figsize=(10, dynamic_height))
+        plt.title(f"{model_name} - Aggregated SHAP Summary", pad=20)
+        shap.summary_plot(shap_grouped_filtered.values, X_test_display, feature_names=shap_grouped_filtered.columns, plot_type="bar", max_display=len(features_to_keep), show=False)
+        plt.savefig(f"{model_name}_shap_bar.svg", format="svg", bbox_inches="tight")
+        plt.close()
+
+        # Beeswarm
+        plt.figure(figsize=(10, dynamic_height))
+        plt.title(f"{model_name} - Aggregated SHAP Beeswarm", pad=20)
+        shap.summary_plot(shap_grouped_filtered.values, X_test_display, feature_names=shap_grouped_filtered.columns, max_display=len(features_to_keep), show=False)
+        plt.savefig(f"{model_name}_shap_beeswarm.svg", format="svg", bbox_inches="tight")
+        plt.close()
+
+    return plot_table
+
+def plot_shap_waterfall(fitted_pipeline, X_test_original, instance_index=0, model_name="XGBoost"):
+    print(f"\nGenerating SHAP Waterfall plot for instance {instance_index} using {model_name}...")
+    ct = fitted_pipeline.named_steps["preprocessor"]
+    model = fitted_pipeline.named_steps["model"]
+    transformed_features = ct.get_feature_names_out()
+    X_test_t = ct.transform(X_test_original)
+
+    explainer = shap.Explainer(model)
+    shap_values = explainer(X_test_t)
+
+    if len(shap_values.shape) == 3:
+        instance_explanation = shap_values[instance_index, :, 1]
+    else:
+        instance_explanation = shap_values[instance_index]
+
+    instance_explanation.feature_names = transformed_features
+    plt.figure(figsize=(10, 6))
+    plt.title(f"{model_name} - Local Explanation (Instance {instance_index})", fontsize=14)
+    shap.plots.waterfall(instance_explanation, max_display=10, show=False)
+    plt.tight_layout()
+    plt.show()
+
+def compute_fairness_metrics(model, X_te, y_te, sensitive_column, reference_group):
+    y_pred = model.predict(X_te)
+    eval_df = X_te.copy()
+    eval_df['prediction'] = y_pred
+    eval_df['actual'] = y_te.values
+
+    group_rates = eval_df.groupby(sensitive_column)['prediction'].mean().to_dict()
+    if reference_group not in group_rates:
+        raise ValueError(f"Reference group '{reference_group}' not found in {sensitive_column}")
+
+    ref_rate = group_rates[reference_group]
+    fairness_results = []
+
+    for group, rate in group_rates.items():
+        spd = rate - ref_rate
+        dir_ratio = rate / ref_rate if ref_rate > 0 else np.nan
+        fairness_results.append({
+            "Attribute": sensitive_column,
+            "Group": group,
+            "Positive Rate": round(rate, 4),
+            "Stat. Parity Diff (SPD)": round(spd, 4),
+            "Disparate Impact Ratio (DIR)": round(dir_ratio, 4)
+        })
+
+    return pd.DataFrame(fairness_results)
+
+def plot_fairness_metrics(df, attribute, title_suffix, model_name):
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    axes[0].barh(df['Group'], df['Stat. Parity Diff (SPD)'], color='salmon')
+    axes[0].axvline(0, color='black', linestyle='--')
+    axes[0].set_title(f'Statistical Parity Difference\n(Ideal = 0) - {title_suffix}')
+
+    axes[1].barh(df['Group'], df['Disparate Impact Ratio (DIR)'], color='skyblue')
+    axes[1].axvline(1, color='black', linestyle='--')
+    axes[1].set_title(f'Disparate Impact Ratio\n(Ideal = 1.0) - {title_suffix}')
+
+    plt.tight_layout()
+    safe_name = model_name.replace(" ", "_").lower()
+    plt.savefig(f"{safe_name}_{attribute}_fairness_metrics.svg", format="svg", bbox_inches="tight")
+    plt.close()
+
+# ==========================================
+# 3. MAIN EXECUTION PIPELINE
+# ==========================================
+if __name__ == "__main__":
+
+    models = {}
+    results = []
+    cm_export_data = {}
+    roc_export_data = {}
+    all_importance_results = {}
+
+    # Train Models and Evaluate
+    for name, (X_tr, X_te, y_tr, y_te) in datasets.items():
+        # Train
+        model = train_xgboost(X_tr, y_tr, name)
+        models[name] = model
+
+        # Evaluate Performance
+        results.append(evaluate_performance(model, X_te, y_te, name))
+
+        # Confusion Matrix
+        y_pred = model.predict(X_te)
+        cm = confusion_matrix(y_te, y_pred)
+        cm_export_data[name] = {"matrix": cm.tolist(), "classes": model.classes_.tolist()}
+
+        # ROC Curve Data
+        y_prob = model.predict_proba(X_te)[:, 1]
+        fpr, tpr, thresholds = roc_curve(y_te, y_prob)
+        auc = roc_auc_score(y_te, y_prob)
+        roc_export_data[name] = {"fpr": fpr.tolist(), "tpr": tpr.tolist(), "auc": round(auc, 4)}
+
+    # Export Standard Metrics
+    pd.DataFrame(results).set_index("Model").to_excel("model_performance_table.xlsx") 
+    print("Table saved to 'model_performance_table.xlsx'")
+
+    with open("confusion_matrices.json", "w") as f:
+        json.dump(cm_export_data, f, indent=4)
+    print("Confusion matrices saved to 'confusion_matrices.json'")
+
+    with open("roc_curve_data.json", "w") as f:
+        json.dump(roc_export_data, f, indent=4)
+    print("ROC curve coordinates securely saved to 'roc_curve_data.json'")
+
+    # Feature Importance & Visualizations
+    for name, fitted_pipeline in models.items():
+        _, X_te_orig, _, y_te = datasets[name]
+
+        print(f"\n{'='*60}\nEVALUATING FEATURE IMPORTANCE: {name.upper()}\n{'='*60}")
+        aggregated_imp_df = compute_aggregated_feature_importance(fitted_pipeline, X_te_orig, y_te, model_name=name)
+        all_importance_results[name] = aggregated_imp_df
+
+        excel_filename = f"{name}_feature_importance_ranked.xlsx"
+        aggregated_imp_df.to_excel(excel_filename, index=False)
+        print(f"Data exported successfully to: {excel_filename}")
+        print(f"\n--- {name} Ranked Importance Table ---")
+        display(aggregated_imp_df.style.hide(axis="index"))
+
+        # Waterfall Plot for the first instance
+       # plot_shap_waterfall(fitted_pipeline, X_te_orig, instance_index=0, model_name=name)
+
+    # Fairness Metrics
+    print("\n--- Fairness Analysis: Ethnicity Across All Models ---")
+    for name, model in models.items():
+        _, X_te, _, y_te = datasets[name]
+        most_frequent_ethnicity = X_te['ethnicity_5cat'].mode()[0]
+
+        print(f"\n{'='*60}\nFAIRNESS METRICS: {name.upper()}\n{'='*60}")
+        fairness_ethnicity = compute_fairness_metrics(model, X_te, y_te, 'ethnicity_5cat', most_frequent_ethnicity)
+
+        excel_filename = f"{name.replace(' ', '_').lower()}_ethnicity_fairness_metrics.xlsx"
+        fairness_ethnicity.to_excel(excel_filename, index=False)
+        display(fairness_ethnicity)
+
+        plot_fairness_metrics(fairness_ethnicity, 'ethnicity_5cat', f'Ethnicity (Ref: {most_frequent_ethnicity}) | Model: {name}', name)
+
+    print("\n--- Fairness Analysis: Sex (Overall Model) ---")
+    fairness_sex = compute_fairness_metrics(models["Overall"], datasets["Overall"][1], datasets["Overall"][3], 'sex', 'Male')
+    fairness_sex.to_excel("overall_sex_fairness_metrics.xlsx", index=False)
+    display(fairness_sex)
+    plot_fairness_metrics(fairness_sex, 'sex', 'Sex (Ref: Male)', 'Overall')
+
