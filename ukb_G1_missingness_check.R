@@ -1,7 +1,7 @@
 library(ggplot2)
 library(tidyr)
 
-setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
+setwd("/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1")
 
 ukb <- readRDS("ukb_G1_preprocessed.rds")
 ukb_G1_cleaned <- readRDS("ukb_G1_cleaned.rds")
