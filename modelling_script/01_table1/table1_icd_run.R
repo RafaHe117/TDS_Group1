@@ -1,4 +1,4 @@
-# analysis/table1/table1_icd_run.R
+# 01_table1/table1_icd_run.R
 # ------------------------------------------------------------
 # PURPOSE
 # Standalone ICD Table 1-style tables
@@ -14,8 +14,8 @@ suppressPackageStartupMessages({
   library(grid)
 })
 
-source("analysis/table1/table1_config.R")
-source("analysis/table1/table1_utils.R")
+source("01_table1/table1_config.R")
+source("01_table1/table1_utils.R")
 
 # -----------------------------
 # Paths

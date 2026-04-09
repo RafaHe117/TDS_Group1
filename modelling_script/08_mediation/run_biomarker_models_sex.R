@@ -183,7 +183,7 @@ run_one_biomarker <- function(df, biomarker, predictors, selected_terms, confoun
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) < 1) {
-  stop("Usage: Rscript analysis/mediation/run_biomarker_models_sex.R <male|female> [sex_value_override]")
+  stop("Usage: Rscript modelling_script/08_mediation/run_biomarker_models_sex.R <male|female> [sex_value_override]")
 }
 
 sex_label <- tolower(args[1])

@@ -12,7 +12,7 @@ module load R-bundle-CRAN/2024.11-foss-2024a
 
 export R_LIBS_USER=~/R/x86_64-pc-linux-gnu-library/4.3
 
-Rscript analysis/mediation/run_formal_mediation_refit_chunk.R \
-  analysis/mediation/inputs/pairs_main_chunk2.csv \
+Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R \
+  modelling_script/08_mediation/inputs/pairs_main_chunk2.csv \
   main_chunk2 \
   all

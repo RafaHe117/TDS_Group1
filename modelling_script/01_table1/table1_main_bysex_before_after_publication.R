@@ -1,4 +1,4 @@
-# analysis/table1/table1_main_bysex_before_after_publication.R
+# 01_table1/table1_main_bysex_before_after_publication.R
 # ------------------------------------------------------------
 # PURPOSE
 # Publication-ready sex-specific Table 1 (main paper)
@@ -14,8 +14,8 @@ suppressPackageStartupMessages({
   library(gridExtra)
 })
 
-source("analysis/table1/table1_config.R")
-source("analysis/table1/table1_utils.R")
+source("01_table1/table1_config.R")
+source("01_table1/table1_utils.R")
 
 # -----------------------------
 # Options

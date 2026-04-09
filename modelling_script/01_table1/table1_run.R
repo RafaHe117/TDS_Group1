@@ -1,11 +1,11 @@
-# analysis/table1/table1_run.R
+# 01_table1/table1_run.R
 # ------------------------------------------------------------
 # Runner: generates 6 tables per spec
-# Output: CSVs under analysis/table1/output/
+# Output: CSVs under 01_table1/output/
 # ------------------------------------------------------------
 
-source("analysis/table1/table1_config.R")
-source("analysis/table1/table1_utils.R")
+source("01_table1/table1_config.R")
+source("01_table1/table1_utils.R")
 
 dir.create(OUTDIR, showWarnings = FALSE, recursive = TRUE)
 

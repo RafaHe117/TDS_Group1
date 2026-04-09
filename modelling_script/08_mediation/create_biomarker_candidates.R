@@ -1,4 +1,4 @@
-dir.create("analysis/mediation/inputs", recursive = TRUE, showWarnings = FALSE)
+dir.create("modelling_script/08_mediation/inputs", recursive = TRUE, showWarnings = FALSE)
 
 biomarker_candidates <- data.frame(
   biomarker = c(
@@ -42,7 +42,7 @@ biomarker_candidates <- data.frame(
 
 write.csv(
   biomarker_candidates,
-  "analysis/mediation/inputs/biomarker_candidates.csv",
+  "modelling_script/08_mediation/inputs/biomarker_candidates.csv",
   row.names = FALSE,
   quote = TRUE
 )

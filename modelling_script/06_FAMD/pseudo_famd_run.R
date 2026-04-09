@@ -1,4 +1,4 @@
-# analysis/FAMD/pseudo_famd_run.R
+# 06_FAMD/pseudo_famd_run.R
 # ------------------------------------------------------------
 # PURPOSE
 # Pseudo-FAMD / mixed-data PCA for TWO datasets:

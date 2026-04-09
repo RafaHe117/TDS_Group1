@@ -12,4 +12,4 @@ module load R-bundle-CRAN/2024.11-foss-2024a
 
 export R_LIBS_USER=~/R/x86_64-pc-linux-gnu-library/4.3
 
-Rscript analysis/mediation/make_mediation_outputs.R
+Rscript modelling_script/08_mediation/make_mediation_outputs.R

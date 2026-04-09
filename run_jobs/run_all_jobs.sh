@@ -28,6 +28,15 @@ qsub 04_stability_bp_confounder.sh
 echo "Submitting stability sex..."
 qsub 04_stability_sex.sh
 
+echo "Submitting Table 1..."
+qsub 05_table1.sh
+
+echo "Submitting FAMD..."
+qsub 06_famd.sh
+
+echo "Submitting mediation..."
+qsub 07_mediation.sh
+
 echo "=================================="
 echo "All jobs submitted at $(date)"
 echo "=================================="

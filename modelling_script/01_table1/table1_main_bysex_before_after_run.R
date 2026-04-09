@@ -1,4 +1,4 @@
-# analysis/table1/table1_main_bysex_before_after_run.R
+# 01_table1/table1_main_bysex_before_after_run.R
 # ------------------------------------------------------------
 # PURPOSE
 # Create FOUR new main-paper Table 1 tables only:
@@ -17,8 +17,8 @@ suppressPackageStartupMessages({
   library(gridExtra)
 })
 
-source("analysis/table1/table1_config.R")
-source("analysis/table1/table1_utils.R")
+source("01_table1/table1_config.R")
+source("01_table1/table1_utils.R")
 
 # -----------------------------
 # Options

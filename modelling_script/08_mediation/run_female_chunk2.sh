@@ -1,8 +1,8 @@
 #!/bin/bash
 #$ -N med_f2
 #$ -cwd
-#$ -o analysis/mediation/run_female_chunk2.out
-#$ -e analysis/mediation/run_female_chunk2.err
+#$ -o modelling_script/08_mediation/run_female_chunk2.out
+#$ -e modelling_script/08_mediation/run_female_chunk2.err
 #$ -l h_rt=04:00:00
 #$ -l mem=16G
 #$ -pe smp 2
@@ -16,7 +16,7 @@ export R_LIBS_USER=~/R/x86_64-pc-linux-gnu-library/4.3
 
 cd /rds/general/project/hda_25-26/live/TDS/TDS_Group1
 
-Rscript analysis/mediation/run_formal_mediation_refit_chunk.R \
-  analysis/mediation/inputs/pairs_female_chunk2.csv \
+Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R \
+  modelling_script/08_mediation/inputs/pairs_female_chunk2.csv \
   female_chunk2 \
   female

@@ -1,4 +1,4 @@
-# analysis/FAMD/check_famd_variance_only.R
+# 06_FAMD/check_famd_variance_only.R
 suppressPackageStartupMessages({})
 
 # -----------------------------
