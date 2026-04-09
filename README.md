@@ -22,15 +22,13 @@ This bash script runs the following analyses in sequential order:
 Note: Mediation Analysis may take a few hours to complete.
 
 ### STEP 3: Run analysis (part 2)
+Update path in the scripts if necessary.
+
 3.1 Run `modelling_script\05_pca\pca_script-copy.R` for PCA
 
 3.2 Run `modelling_script\09_stability_analysis\incremental_plot.R` to produce incremental plots
 
-3.3 Run the following for XGBoost: (Update path if necessary)
-
-- `modelling_script\07_XGBoost\XGBoost All.ipynb`
-- `modelling_script\07_XGBoost\XGBoost Female.ipynb`
-- `modelling_script\07_XGBoost\XGBoost Male.ipynb`
+3.3 Run `modelling_script\07_XGBoost\XGBoost_Full_Script` for XGBoost 
 
 
 All outputs (plots, tables, CSV files, etc.) from STEP 2 and 3 are saved in their respective folders in `modelling_script`.
