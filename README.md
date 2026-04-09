@@ -2,7 +2,7 @@
 
 ## Instructions
 ### STEP 1: Produce missingness heatmap
-Run `ukb_G1_build_raw_dataset.R` (Update path if necessary)
+Run `ukb_G1_missingness_check.R` (Update path if necessary)
 
 Outputs are saved in the `figure/` directory.
 
@@ -26,9 +26,9 @@ Update path in the scripts if necessary.
 
 3.1 Run `modelling_script\05_pca\pca_script-copy.R` for PCA
 
-3.2 Run `modelling_script\09_stability_analysis\incremental_plot.R` to produce incremental plots
+3.2 Run `modelling_script\07_XGBoost\XGBoost_Full_Script` for XGBoost 
 
-3.3 Run `modelling_script\07_XGBoost\XGBoost_Full_Script` for XGBoost 
+3.3 Run `modelling_script\09_stability_analysis\incremental_plot.R` to produce incremental plots
 
 
 All outputs (plots, tables, CSV files, etc.) from STEP 2 and 3 are saved in their respective folders in `modelling_script`.
