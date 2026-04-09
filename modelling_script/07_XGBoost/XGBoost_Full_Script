@@ -48,9 +48,9 @@ from IPython.display import display
 # ==========================================
 # 1. DATA LOADING & FILTERING
 # ==========================================
-DATA_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/split_imputed_data/ukb_G1_train_imputed.rds"
-EXPOSURE_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/modelling_script/stability_analysis/subsample_lasso/exposure_list.csv"
-TEST_PATH = "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/split_imputed_data/ukb_G1_test_imputed.rds"
+DATA_PATH = "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/split_imputed_data/ukb_G1_train_imputed.rds"
+EXPOSURE_PATH = "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/modelling_script/stability_analysis/subsample_lasso/exposure_list.csv"
+TEST_PATH = "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/split_imputed_data/ukb_G1_test_imputed.rds"
 
 # Load data
 train_data = pyreadr.read_r(DATA_PATH)[None]
