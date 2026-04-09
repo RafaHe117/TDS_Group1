@@ -1,6 +1,6 @@
 suppressPackageStartupMessages(library(miceRanger))
 
-setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
+setwd("/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1")
 
 in_file  <- "ukb_G1_cleaned.rds"
 out_dir  <- "imputation"
@@ -11,6 +11,11 @@ set.seed(20260225)
 
 ukb <- readRDS(in_file)
 ukb <- as.data.frame(ukb)
+
+test = F
+if(test) {
+  ukb <- ukb[1:10000,]
+}
 
 # ordered -> factor
 ord <- names(ukb)[sapply(ukb, is.ordered)]
@@ -29,7 +34,7 @@ get_cores <- function() {
   1L
 }
 
-n_cores <- get_cores()
+n_cores <- 64
 if (is.na(n_cores) || n_cores < 1) n_cores <- 1L
 options(ranger.num.threads = n_cores)
 
@@ -74,7 +79,7 @@ ukb_imp <- ukb[, predictor_cols, drop = FALSE]
 imp_vars <- intersect(imp_vars, names(ukb_imp))
 
 # hyperparameters
-MAXITER <- 10
+MAXITER <- 1
 NTREES  <- 100
 
 # detect sparse categorical vars

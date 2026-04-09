@@ -7,7 +7,8 @@
 .Rhistory
 .RData
 .DS_Store
-
+*.e*
+*.o*
 
 # Ignore local imputation outputs
 imputation/logs/

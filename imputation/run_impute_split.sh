@@ -12,7 +12,7 @@ set -euo pipefail
 ############################################
 # 1️⃣ Working directory
 ############################################
-WORKDIR="/rds/general/project/hda_25-26/live/TDS/TDS_Group1/imputation"
+WORKDIR="/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/imputation"
 cd "$WORKDIR" || { echo "Cannot cd to $WORKDIR"; exit 1; }
 
 mkdir -p logs
@@ -36,8 +36,8 @@ echo "========================================"
 ############################################
 # 3️⃣ Environment
 ############################################
-source ~/miniforge3/bin/activate
-conda activate Renv
+eval "$(~/anaconda3/bin/conda shell.bash hook)"
+source activate phd_r
 
 export LC_ALL=C
 export LANG=C
@@ -58,7 +58,7 @@ echo "----------------------------------------"
 ############################################
 # 5️⃣ Run R script
 ############################################
-stdbuf -oL -eL ~/miniforge3/envs/Renv/bin/Rscript --vanilla ukb_G1_imputation_split.R
+stdbuf -oL -eL Rscript --vanilla ukb_G1_imputation_split.R
 
 ############################################
 # 6️⃣ End

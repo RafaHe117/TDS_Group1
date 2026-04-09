@@ -3,7 +3,7 @@ library(dplyr)
 library(scales)
 library(forcats)
 
-setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
+setwd("/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1")
 
 ukb <- readRDS("ukb_G1_raw.rds")
 
@@ -691,12 +691,11 @@ recode_numeric_intake <- function(df, vars) {
 
 ukb <- recode_numeric_intake(
   ukb,
-  vars = c("fruit_intake_fresh", "tea_intake", "coffee_intake")
+  vars = c("fruit_intake_fresh", "tea_intake")
 )
 
 summary(ukb$fruit_intake_fresh)
 summary(ukb$tea_intake)
-summary(ukb$coffee_intake)
 
 ##############################################################################
 # Merge oily fish into 3 levels
@@ -739,53 +738,53 @@ table(ukb$salt_3cat, useNA = "ifany")
 ##############################################################################
 # Calculate mental health satisfaction score (mh_satis_mean_score)
 ##############################################################################
-recode_mental_health <- function(df, 
-                                 happiness = "happiness", work = "work_satis", 
-                                 family = "family_satis", friend = "friend_satis", 
-                                 finance = "fin_satis", employment_col_base = "employment_status") {
-  
-  cat_map <- c(
-    "Extremely unhappy" = 0, "I am not employed" = NA, 
-    "Very unhappy" = 1, "Moderately unhappy" = 2, "Moderately happy" = 3,
-    "Very happy" = 4, "Extremely happy" = 5, "Extremely happy/Other" = 6,
-    "Prefer not to answer" = NA, "Do not know" = NA
-  )
-  
-  cat_matrix <- cbind(
-    happiness = cat_map[as.character(df[[happiness]])], 
-    work      = cat_map[as.character(df[[work]])], 
-    family    = cat_map[as.character(df[[family]])],
-    friend    = cat_map[as.character(df[[friend]])], 
-    finance   = cat_map[as.character(df[[finance]])]
-  )
-  
-  # Extract the employment status columns
-  employment_col <- grep(paste0("^", employment_col_base), names(df), value = TRUE)
-  employment_matrix <- as.matrix(df[, employment_col])
-  
-  # Check unemployed or retired
-  is_retired <- rowSums(employment_matrix == "Retired", na.rm = TRUE) > 0
-  is_unemployed <- rowSums(employment_matrix == "Unemployed", na.rm = TRUE) > 0
-  
-  # Overwrite the work score for unemployed and for retired
-  cat_matrix[is_unemployed, "work"] <- 0
-  cat_matrix[is_retired, "work"] <- 3
-  
-  # Calculate how many questions each person answered
-  n_answered <- rowSums(!is.na(cat_matrix))
-  
-  df <- df %>%
-    mutate(
-      mh_n_answered = n_answered,
-      mh_satis_mean_score = ifelse(n_answered >= 3, rowMeans(cat_matrix, na.rm = TRUE), NA)
-    )
-  
-  return(df)
-}
-
-ukb <- recode_mental_health(ukb)
-
-table(ukb$mh_n_answered, is.na(ukb$mh_satis_mean_score), useNA = "always")
+# recode_mental_health <- function(df, 
+#                                  happiness = "happiness", work = "work_satis", 
+#                                  family = "family_satis", friend = "friend_satis", 
+#                                  finance = "fin_satis", employment_col_base = "employment_status") {
+#   
+#   cat_map <- c(
+#     "Extremely unhappy" = 0, "I am not employed" = NA, 
+#     "Very unhappy" = 1, "Moderately unhappy" = 2, "Moderately happy" = 3,
+#     "Very happy" = 4, "Extremely happy" = 5, "Extremely happy/Other" = 6,
+#     "Prefer not to answer" = NA, "Do not know" = NA
+#   )
+#   
+#   cat_matrix <- cbind(
+#     happiness = cat_map[as.character(df[[happiness]])], 
+#     work      = cat_map[as.character(df[[work]])], 
+#     family    = cat_map[as.character(df[[family]])],
+#     friend    = cat_map[as.character(df[[friend]])], 
+#     finance   = cat_map[as.character(df[[finance]])]
+#   )
+#   
+#   # Extract the employment status columns
+#   employment_col <- grep(paste0("^", employment_col_base), names(df), value = TRUE)
+#   employment_matrix <- as.matrix(df[, employment_col])
+#   
+#   # Check unemployed or retired
+#   is_retired <- rowSums(employment_matrix == "Retired", na.rm = TRUE) > 0
+#   is_unemployed <- rowSums(employment_matrix == "Unemployed", na.rm = TRUE) > 0
+#   
+#   # Overwrite the work score for unemployed and for retired
+#   cat_matrix[is_unemployed, "work"] <- 0
+#   cat_matrix[is_retired, "work"] <- 3
+#   
+#   # Calculate how many questions each person answered
+#   n_answered <- rowSums(!is.na(cat_matrix))
+#   
+#   df <- df %>%
+#     mutate(
+#       mh_n_answered = n_answered,
+#       mh_satis_mean_score = ifelse(n_answered >= 3, rowMeans(cat_matrix, na.rm = TRUE), NA)
+#     )
+#   
+#   return(df)
+# }
+# 
+# ukb <- recode_mental_health(ukb)
+# 
+# table(ukb$mh_n_answered, is.na(ukb$mh_satis_mean_score), useNA = "always")
 
 ##############################################################################
 # Recode menopause (Field 2724) to binary (Yes / No)
@@ -844,33 +843,50 @@ print(table(ukb$self_health_rating, ukb$self_health_bin, useNA = "ifany"))
 ##############################################################################
 
 cols_hr <- grep("household_relationship", colnames(ukb), value = TRUE)
-# construct living_with_partner
-ukb$living_with_partner <- apply(ukb[, cols_hr], 1, function(x) {
-  
-  # Yes: any column equals partner
-  if (any(x == "Husband, wife or partner")) {
-    return("Yes")
-  }
-  
-  # NA: all columns are Prefer not to answer
-  if (all(x == "Prefer not to answer")) {
-    return(NA)
-  }
-  
-  # No: no partner but at least one real response
-  if (!any(x == "Husband, wife or partner") &&
-      any(x != "Prefer not to answer")) {
-    return("No")
-  }
-  
-  return(NA)
-})
 
-# convert to factor
-ukb$living_with_partner <- factor(
-  ukb$living_with_partner,
-  levels = c("No", "Yes")
+# # construct living_with_partner
+# ukb$living_with_partner <- apply(ukb[, cols_hr], 1, function(x) {
+#   
+#   # Yes: any column equals partner
+#   if (any(x == "Husband, wife or partner")) {
+#     return("Yes")
+#   }
+#   
+#   # NA: all columns are Prefer not to answer
+#   if (all(x == "Prefer not to answer")) {
+#     return(NA)
+#   }
+#   
+#   # No: no partner but at least one real response
+#   if (!any(x == "Husband, wife or partner") &&
+#       any(x != "Prefer not to answer")) {
+#     return("No")
+#   }
+#   
+#   return(NA)
+# })
+# 
+# # convert to factor
+# ukb$living_with_partner <- factor(
+#   ukb$living_with_partner,
+#   levels = c("No", "Yes")
+# )
+
+# 1. Identify rows with a partner (any of the columns)
+has_partner <- rowSums(ukb[, cols_hr] == "Husband, wife or partner", na.rm = TRUE) > 0
+
+# 2. Identify rows that are purely "Prefer not to answer"
+all_prefer_not <- rowSums(ukb[, cols_hr] == "Prefer not to answer", na.rm = TRUE) == length(cols_hr)
+
+# 3. Combine logic efficiently
+ukb$living_with_partner <- case_when(
+  has_partner ~ "Yes",
+  all_prefer_not ~ NA_character_,
+  TRUE ~ "No" # This covers the "no partner but at least one real response" case
 )
+
+# Convert to factor
+ukb$living_with_partner <- factor(ukb$living_with_partner, levels = c("No", "Yes"))
 
 # quick check
 table(ukb$living_with_partner, useNA = "ifany")

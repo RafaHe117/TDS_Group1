@@ -1,7 +1,7 @@
 setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
 
-input_file  <- "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/extraction_and_recoding/outputs/recoded.rds"
-output_file <- "/rds/general/project/hda_25-26/live/TDS/TDS_Group1/ukb_G1_raw.rds"
+input_file  <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/extraction_and_recoding/outputs/ukb_recoded.rds"
+output_file <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/ukb_G1_raw.rds"
 
 ############################################################
 # CHUNK 1: Load recoded data, keep baseline (.0.0) fields and
