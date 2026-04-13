@@ -1,11 +1,12 @@
 #!/bin/bash
 #$ -N famd_pipeline
 #$ -cwd
-#$ -o 06_FAMD/famd_pipeline.out
-#$ -e 06_FAMD/famd_pipeline.err
+#$ -o modelling_script/06_FAMD/logs/famd_pipeline.out
+#$ -e modelling_script/06_FAMD/logs/famd_pipeline.err
 #$ -l h_rt=12:00:00
 #$ -l mem=64G
 #$ -pe smp 4
+
 set -euo pipefail
 
 PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
@@ -76,8 +77,23 @@ echo "Pre-checks passed."
 run_step "Stage 1 - variance check" \
   "Rscript ${FAMD_DIR}/check_famd_variance_only.R"
 
-run_step "Stage 2 - pseudo FAMD main run" \
-  "Rscript ${FAMD_DIR}/pseudo_famd_run.R"
+run_step "Stage 2a - pseudo FAMD final 1a" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R final 1a"
+
+run_step "Stage 2b - pseudo FAMD final 1b" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R final 1b"
+
+run_step "Stage 2c - pseudo FAMD final 2" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R final 2"
+
+run_step "Stage 3a - pseudo FAMD train 1a" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R train 1a"
+
+run_step "Stage 3b - pseudo FAMD train 1b" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R train 1b"
+
+run_step "Stage 3c - pseudo FAMD train 2" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R train 2"
 
 echo
 echo "Checking expected output structure..."
@@ -85,9 +101,7 @@ check_dir "${OUT_DIR}"
 check_dir "${OUT_DIR}/final"
 check_dir "${OUT_DIR}/train"
 
-# -----------------------------
 # FINAL dataset outputs
-# -----------------------------
 check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_scree.png"
 check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_indiv_by_outcome.png"
 check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_indiv_by_sex.png"
@@ -118,9 +132,7 @@ check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_scores.csv"
 check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_contrib_pc1.csv"
 check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_contrib_pc2.csv"
 
-# -----------------------------
 # TRAIN dataset outputs
-# -----------------------------
 check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_scree.png"
 check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_indiv_by_outcome.png"
 check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_indiv_by_sex.png"
