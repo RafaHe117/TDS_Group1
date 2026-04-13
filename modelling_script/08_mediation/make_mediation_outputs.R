@@ -13,18 +13,19 @@ options(bitmapType = "cairo")
 # =========================================================
 # paths
 # =========================================================
-BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/TDS_Group1"
+BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
+MED_DIR <- file.path(BASE_DIR, "modelling_script", "08_mediation")
 
 REFIT_SPLIT_DIR <- file.path(
-  BASE_DIR, "analysis", "mediation", "outputs", "formal_mediation_refit_split"
+  MED_DIR, "outputs", "formal_mediation_refit_split"
 )
 
 SHORTLIST_DIR <- file.path(
-  BASE_DIR, "analysis", "mediation", "outputs", "final_shortlists"
+  MED_DIR, "outputs", "final_shortlists"
 )
 
 OUT_DIR <- file.path(
-  BASE_DIR, "analysis", "mediation", "outputs", "final_mediation_outputs"
+  MED_DIR, "outputs", "final_mediation_outputs"
 )
 
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)

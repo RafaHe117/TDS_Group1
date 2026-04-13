@@ -3,12 +3,13 @@
 # Config for Table 1 pipeline (variables, labels, rules)
 # ------------------------------------------------------------
 
-# Data paths (relative to repo root or current working directory in job)
-PATH_CLEAN   <- "ukb_G1_cleaned.rds"
-PATH_IMPUTED <- "ukb_G1_imputed.rds"
+# Data paths (absolute, using stability-style in_dir convention)
+in_dir <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
+PATH_CLEAN   <- file.path(in_dir, "ukb_G1_cleaned.rds")
+PATH_IMPUTED <- file.path(in_dir, "imputation", "ukb_G1_imputed.rds")
 
-# Output directory (keep everything under analysis/table1/output/)
-OUTDIR <- file.path("analysis", "table1", "output")
+# Output directory
+OUTDIR <- file.path(in_dir, "modelling_script", "01_table1", "output")
 
 # Collapse rule for high-cardinality categoricals (Appendix tables)
 TOPK_LEVELS <- 10

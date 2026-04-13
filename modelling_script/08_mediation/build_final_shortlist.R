@@ -5,8 +5,8 @@ suppressPackageStartupMessages({
   library(tibble)
 })
 
-BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/TDS_Group1"
-MED_DIR  <- file.path(BASE_DIR, "analysis", "mediation")
+BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
+MED_DIR  <- file.path(BASE_DIR, "modelling_script", "08_mediation")
 IN_DIR   <- file.path(MED_DIR, "inputs")
 OUT_DIR  <- file.path(MED_DIR, "outputs")
 SHORT_DIR <- file.path(OUT_DIR, "final_shortlists")

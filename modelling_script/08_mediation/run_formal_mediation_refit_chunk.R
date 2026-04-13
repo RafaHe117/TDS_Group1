@@ -5,8 +5,8 @@ suppressPackageStartupMessages({
   library(stringr)
 })
 
-BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/TDS_Group1"
-MED_DIR  <- file.path(BASE_DIR, "analysis", "mediation")
+BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
+MED_DIR  <- file.path(BASE_DIR, "modelling_script", "08_mediation")
 DATA_PATH <- file.path(BASE_DIR, "split_imputed_data", "ukb_G1_train_imputed.rds")
 
 INPUT_DIR <- file.path(MED_DIR, "inputs")

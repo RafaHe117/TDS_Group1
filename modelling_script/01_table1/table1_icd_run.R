@@ -14,16 +14,19 @@ suppressPackageStartupMessages({
   library(grid)
 })
 
-source("01_table1/table1_config.R")
-source("01_table1/table1_utils.R")
+in_dir <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
+table1_dir <- file.path(in_dir, "modelling_script", "01_table1")
+
+source(file.path(table1_dir, "table1_config.R"))
+source(file.path(table1_dir, "table1_utils.R"))
 
 # -----------------------------
 # Paths
 # -----------------------------
-PATH_CLEAN   <- "ukb_G1_cleaned.rds"
-PATH_IMPUTED <- "ukb_G1_imputed.rds"
+PATH_CLEAN   <- file.path(in_dir, "ukb_G1_cleaned.rds")
+PATH_IMPUTED <- file.path(in_dir, "imputation", "ukb_G1_imputed.rds")
 
-OUTDIR_ICD <- file.path("analysis", "table1", "icd_cat_output")
+OUTDIR_ICD <- file.path(table1_dir, "icd_cat_output")
 dir.create(OUTDIR_ICD, recursive = TRUE, showWarnings = FALSE)
 
 # -----------------------------

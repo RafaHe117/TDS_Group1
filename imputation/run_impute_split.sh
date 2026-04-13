@@ -12,7 +12,7 @@ set -euo pipefail
 ############################################
 # 1️⃣ Working directory
 ############################################
-WORKDIR="/rds/general/project/hda_25-26/live/TDS/TDS_Group1/imputation"
+WORKDIR="/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/imputation"
 cd "$WORKDIR" || { echo "Cannot cd to $WORKDIR"; exit 1; }
 
 mkdir -p logs
