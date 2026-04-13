@@ -1,14 +1,13 @@
-# 06_FAMD/pseudo_famd_run.R
+# modelling_script/06_FAMD/pseudo_famd_run.R
 # ------------------------------------------------------------
 # PURPOSE
 # Pseudo-FAMD / mixed-data PCA for TWO datasets:
 #   1) final imputed: ukb_G1_imputed.rds
 #   2) train imputed: split_imputed_data/ukb_G1_train_imputed.rds
 #
-# For each dataset, run 3 versions:
-#   - pseudo_famd1a: baseline main, no alcohol
-#   - pseudo_famd1b: baseline + alcohol sensitivity
-#   - pseudo_famd2: biological supplementary
+# Supports running ONE dataset/version at a time:
+#   dataset_arg: final / train / all
+#   version_arg: 1a / 1b / 2 / all
 #
 # For each version, export:
 #   1. scree plot PNG
@@ -21,16 +20,14 @@
 #   - variance explained
 #   - individual scores with colouring variables
 #   - variable contributions for PC1 / PC2
-#
-# IMPORTANT
-# - Scatter axes are labelled as PC1 (xx.x%), PC2 (yy.y%)
-# - Output folders are overwritten each run
 # ------------------------------------------------------------
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(readr)
 })
+
+options(bitmapType = "cairo")
 
 # -----------------------------
 # Paths
@@ -40,6 +37,27 @@ PATH_FINAL <- file.path(in_dir, "imputation", "ukb_G1_imputed.rds")
 PATH_TRAIN <- file.path(in_dir, "split_imputed_data", "ukb_G1_train_imputed.rds")
 
 OUTROOT <- file.path(in_dir, "modelling_script", "06_FAMD", "FAMD_output")
+
+# -----------------------------
+# Args
+# -----------------------------
+args <- commandArgs(trailingOnly = TRUE)
+
+dataset_arg <- if (length(args) >= 1) args[[1]] else "all"
+version_arg <- if (length(args) >= 2) args[[2]] else "all"
+
+valid_dataset_args <- c("final", "train", "all")
+valid_version_args <- c("1a", "1b", "2", "all")
+
+if (!dataset_arg %in% valid_dataset_args) {
+  stop("dataset_arg must be one of: final, train, all", call. = FALSE)
+}
+if (!version_arg %in% valid_version_args) {
+  stop("version_arg must be one of: 1a, 1b, 2, all", call. = FALSE)
+}
+
+message("dataset_arg = ", dataset_arg)
+message("version_arg = ", version_arg)
 
 # -----------------------------
 # Colouring variables
@@ -111,13 +129,9 @@ clean_group_vector <- function(x, fallback_name = "group") {
   x
 }
 
-# Build mixed matrix:
-# - continuous: numeric + z-score
-# - categorical: factor + one-hot
 prep_mixed_matrix <- function(df, cont_vars, cat_vars) {
   dat <- df[, c(cont_vars, cat_vars), drop = FALSE]
-  
-  # continuous
+
   Xc <- NULL
   if (length(cont_vars) > 0) {
     for (v in cont_vars) dat[[v]] <- suppressWarnings(as.numeric(dat[[v]]))
@@ -125,8 +139,7 @@ prep_mixed_matrix <- function(df, cont_vars, cat_vars) {
     Xc <- as.matrix(Xc)
     colnames(Xc) <- cont_vars
   }
-  
-  # categorical
+
   Xf <- NULL
   mm_cols <- character(0)
   if (length(cat_vars) > 0) {
@@ -138,14 +151,14 @@ prep_mixed_matrix <- function(df, cont_vars, cat_vars) {
       }
       dat[[v]] <- droplevels(dat[[v]])
     }
-    
+
     form <- as.formula(paste("~", paste(cat_vars, collapse = " + "), "-1"))
     Xf <- model.matrix(form, data = dat)
     mm_cols <- colnames(Xf)
   }
-  
+
   if (is.null(Xc) && is.null(Xf)) stop("No variables provided.", call. = FALSE)
-  
+
   if (is.null(Xc)) {
     X <- Xf
   } else if (is.null(Xf)) {
@@ -153,10 +166,10 @@ prep_mixed_matrix <- function(df, cont_vars, cat_vars) {
   } else {
     X <- cbind(Xc, Xf)
   }
-  
+
   ok <- complete.cases(X)
   X <- X[ok, , drop = FALSE]
-  
+
   list(
     X = X,
     ok = ok,
@@ -168,8 +181,7 @@ prep_mixed_matrix <- function(df, cont_vars, cat_vars) {
 
 aggregate_contrib <- function(loadings_vec, cont_vars, cat_vars, mm_colnames) {
   contrib <- list()
-  
-  # continuous: squared loading
+
   if (length(cont_vars) > 0) {
     for (v in cont_vars) {
       if (v %in% names(loadings_vec)) {
@@ -177,8 +189,7 @@ aggregate_contrib <- function(loadings_vec, cont_vars, cat_vars, mm_colnames) {
       }
     }
   }
-  
-  # categorical: sum squared loadings across dummy columns starting with var name
+
   if (length(cat_vars) > 0 && length(mm_colnames) > 0) {
     for (v in cat_vars) {
       idx <- startsWith(mm_colnames, v)
@@ -189,13 +200,13 @@ aggregate_contrib <- function(loadings_vec, cont_vars, cat_vars, mm_colnames) {
       }
     }
   }
-  
+
   out <- data.frame(
     variable = names(contrib),
     contrib  = as.numeric(unlist(contrib)),
     stringsAsFactors = FALSE
   )
-  
+
   out[order(out$contrib, decreasing = TRUE), , drop = FALSE]
 }
 
@@ -205,7 +216,7 @@ plot_scree <- function(pca, prefix) {
     PC = seq_along(var_expl),
     explained = 100 * var_expl
   )
-  
+
   ggplot(dfv[1:min(10, nrow(dfv)), ], aes(x = PC, y = explained)) +
     geom_col() +
     scale_x_continuous(breaks = dfv$PC[1:min(10, nrow(dfv))]) +
@@ -223,7 +234,7 @@ plot_individuals <- function(scores, color_vec, prefix, label, pc1_pct, pc2_pct)
     PC2 = scores[, 2],
     group = clean_group_vector(color_vec, label)
   )
-  
+
   ggplot(dfi, aes(x = PC1, y = PC2, color = group)) +
     geom_point(alpha = 0.25, size = 0.7) +
     labs(
@@ -238,7 +249,7 @@ plot_individuals <- function(scores, color_vec, prefix, label, pc1_pct, pc2_pct)
 plot_top_contrib <- function(contrib_df, prefix, pc_label, top_n = 20) {
   top <- head(contrib_df, top_n)
   top$variable <- factor(top$variable, levels = rev(top$variable))
-  
+
   ggplot(top, aes(x = variable, y = contrib)) +
     geom_col() +
     coord_flip() +
@@ -252,7 +263,7 @@ plot_top_contrib <- function(contrib_df, prefix, pc_label, top_n = 20) {
 
 save_version_csvs <- function(pca, df, ok, prep, prefix, outdir_dataset) {
   var_expl <- 100 * (pca$sdev^2) / sum(pca$sdev^2)
-  
+
   variance_df <- data.frame(
     dataset = basename(outdir_dataset),
     version = prefix,
@@ -260,7 +271,7 @@ save_version_csvs <- function(pca, df, ok, prep, prefix, outdir_dataset) {
     variance_explained_percent = var_expl,
     stringsAsFactors = FALSE
   )
-  
+
   scores_df <- data.frame(
     dataset = basename(outdir_dataset),
     version = prefix,
@@ -271,37 +282,37 @@ save_version_csvs <- function(pca, df, ok, prep, prefix, outdir_dataset) {
     sex = df[[COLOR_BY_SEX]][ok],
     stringsAsFactors = FALSE
   )
-  
+
   load1 <- pca$rotation[, 1]
   load2 <- pca$rotation[, 2]
-  
+
   contrib_pc1_df <- aggregate_contrib(load1, prep$cont_vars, prep$cat_vars, prep$mm_cols)
   contrib_pc1_df$dataset <- basename(outdir_dataset)
   contrib_pc1_df$version <- prefix
   contrib_pc1_df$PC <- "PC1"
   contrib_pc1_df <- contrib_pc1_df[, c("dataset", "version", "PC", "variable", "contrib")]
-  
+
   contrib_pc2_df <- aggregate_contrib(load2, prep$cont_vars, prep$cat_vars, prep$mm_cols)
   contrib_pc2_df$dataset <- basename(outdir_dataset)
   contrib_pc2_df$version <- prefix
   contrib_pc2_df$PC <- "PC2"
   contrib_pc2_df <- contrib_pc2_df[, c("dataset", "version", "PC", "variable", "contrib")]
-  
+
   save_csv(
     variance_df,
     file.path(outdir_dataset, paste0(prefix, "_variance_explained.csv"))
   )
-  
+
   save_csv(
     scores_df,
     file.path(outdir_dataset, paste0(prefix, "_scores.csv"))
   )
-  
+
   save_csv(
     contrib_pc1_df,
     file.path(outdir_dataset, paste0(prefix, "_contrib_pc1.csv"))
   )
-  
+
   save_csv(
     contrib_pc2_df,
     file.path(outdir_dataset, paste0(prefix, "_contrib_pc2.csv"))
@@ -311,23 +322,28 @@ save_version_csvs <- function(pca, df, ok, prep, prefix, outdir_dataset) {
 run_one_version <- function(df, cont_vars, cat_vars, prefix, outdir_dataset) {
   vars_needed <- unique(c(cont_vars, cat_vars, COLOR_BY_OUTCOME, COLOR_BY_SEX))
   assert_has_vars(df, vars_needed, context = prefix)
-  
+
+  message("Preparing mixed matrix for: ", prefix)
   prep <- prep_mixed_matrix(df, cont_vars, cat_vars)
   X <- prep$X
   ok <- prep$ok
-  
-  # PCA on prepared mixed matrix
+
+  message("Matrix ready for ", prefix,
+          " | nrow=", nrow(X),
+          " ncol=", ncol(X))
+
+  message("Running PCA for: ", prefix)
   pca <- prcomp(X, center = FALSE, scale. = FALSE)
-  
+  message("PCA finished for: ", prefix)
+
   var_expl <- 100 * (pca$sdev^2) / sum(pca$sdev^2)
   pc1_pct <- var_expl[1]
   pc2_pct <- var_expl[2]
-  
+
   scores <- pca$x
   outcome_vec <- df[[COLOR_BY_OUTCOME]][ok]
   sex_vec     <- df[[COLOR_BY_SEX]][ok]
-  
-  # Save CSVs needed to regenerate figures
+
   save_version_csvs(
     pca = pca,
     df = df,
@@ -336,90 +352,103 @@ run_one_version <- function(df, cont_vars, cat_vars, prefix, outdir_dataset) {
     prefix = prefix,
     outdir_dataset = outdir_dataset
   )
-  
-  # 1) scree
+
   save_png(
     plot_scree(pca, prefix),
     file.path(outdir_dataset, paste0(prefix, "_scree.png"))
   )
-  
-  # 2) outcome scatter
+
   save_png(
     plot_individuals(scores, outcome_vec, prefix, COLOR_BY_OUTCOME, pc1_pct, pc2_pct),
     file.path(outdir_dataset, paste0(prefix, "_indiv_by_outcome.png"))
   )
-  
-  # 3) sex scatter
+
   save_png(
     plot_individuals(scores, sex_vec, prefix, COLOR_BY_SEX, pc1_pct, pc2_pct),
     file.path(outdir_dataset, paste0(prefix, "_indiv_by_sex.png"))
   )
-  
-  # 4-5) contributions PC1 / PC2
+
   load1 <- pca$rotation[, 1]
   load2 <- pca$rotation[, 2]
-  
+
   c1 <- aggregate_contrib(load1, prep$cont_vars, prep$cat_vars, prep$mm_cols)
   c2 <- aggregate_contrib(load2, prep$cont_vars, prep$cat_vars, prep$mm_cols)
-  
+
   save_png(
     plot_top_contrib(c1, prefix, "PC1", top_n = 20),
     file.path(outdir_dataset, paste0(prefix, "_contrib_pc1.png")),
     width = 9, height = 6
   )
-  
+
   save_png(
     plot_top_contrib(c2, prefix, "PC2", top_n = 20),
     file.path(outdir_dataset, paste0(prefix, "_contrib_pc2.png")),
     width = 9, height = 6
   )
-  
-  invisible(pca)
+
+  rm(prep, X, ok, pca, var_expl, scores, outcome_vec, sex_vec, load1, load2, c1, c2)
+  gc(verbose = FALSE)
+
+  invisible(NULL)
 }
 
-run_dataset <- function(inpath, dataset_name) {
+run_version_by_key <- function(df, version_key, outdir_dataset) {
+  if (version_key == "1a") {
+    run_one_version(
+      df = df,
+      cont_vars = v1a_cont,
+      cat_vars  = v1a_cat,
+      prefix    = "pseudo_famd1a_baseline_main_no_alcohol",
+      outdir_dataset = outdir_dataset
+    )
+  } else if (version_key == "1b") {
+    run_one_version(
+      df = df,
+      cont_vars = v1b_cont,
+      cat_vars  = v1b_cat,
+      prefix    = "pseudo_famd1b_baseline_plus_alcohol_sensitivity",
+      outdir_dataset = outdir_dataset
+    )
+  } else if (version_key == "2") {
+    run_one_version(
+      df = df,
+      cont_vars = v2_cont,
+      cat_vars  = v2_cat,
+      prefix    = "pseudo_famd2_biological_supplementary",
+      outdir_dataset = outdir_dataset
+    )
+  } else {
+    stop("Unknown version_key: ", version_key, call. = FALSE)
+  }
+}
+
+run_dataset <- function(inpath, dataset_name, version_arg = "all") {
   message("\n==============================")
   message("Reading dataset: ", dataset_name)
   message("Path: ", inpath)
   message("==============================")
-  
+
   df <- readRDS(inpath)
-  
   outdir_dataset <- file.path(OUTROOT, dataset_name)
-  
-  # overwrite this dataset folder on each run
-  if (dir.exists(outdir_dataset)) {
-    unlink(outdir_dataset, recursive = TRUE, force = TRUE)
-  }
   dir.create(outdir_dataset, recursive = TRUE, showWarnings = FALSE)
-  
-  # 1a
-  run_one_version(
-    df = df,
-    cont_vars = v1a_cont,
-    cat_vars  = v1a_cat,
-    prefix    = "pseudo_famd1a_baseline_main_no_alcohol",
-    outdir_dataset = outdir_dataset
-  )
-  
-  # 1b
-  run_one_version(
-    df = df,
-    cont_vars = v1b_cont,
-    cat_vars  = v1b_cat,
-    prefix    = "pseudo_famd1b_baseline_plus_alcohol_sensitivity",
-    outdir_dataset = outdir_dataset
-  )
-  
-  # 2
-  run_one_version(
-    df = df,
-    cont_vars = v2_cont,
-    cat_vars  = v2_cat,
-    prefix    = "pseudo_famd2_biological_supplementary",
-    outdir_dataset = outdir_dataset
-  )
-  
+
+  if (version_arg == "all") {
+    run_version_by_key(df, "1a", outdir_dataset)
+    gc(verbose = FALSE)
+
+    run_version_by_key(df, "1b", outdir_dataset)
+    gc(verbose = FALSE)
+
+    run_version_by_key(df, "2", outdir_dataset)
+    gc(verbose = FALSE)
+  } else {
+    run_version_by_key(df, version_arg, outdir_dataset)
+    gc(verbose = FALSE)
+  }
+
+  rm(df)
+  gc(verbose = FALSE)
+
   message("Done dataset: ", dataset_name, " -> ", outdir_dataset)
 }
 
@@ -428,7 +457,16 @@ run_dataset <- function(inpath, dataset_name) {
 # -----------------------------
 dir.create(OUTROOT, recursive = TRUE, showWarnings = FALSE)
 
-run_dataset(PATH_FINAL, "final")
-run_dataset(PATH_TRAIN, "train")
+if (dataset_arg == "all") {
+  run_dataset(PATH_FINAL, "final", version_arg = version_arg)
+  gc(verbose = FALSE)
+
+  run_dataset(PATH_TRAIN, "train", version_arg = version_arg)
+  gc(verbose = FALSE)
+} else if (dataset_arg == "final") {
+  run_dataset(PATH_FINAL, "final", version_arg = version_arg)
+} else if (dataset_arg == "train") {
+  run_dataset(PATH_TRAIN, "train", version_arg = version_arg)
+}
 
 message("\nALL DONE. Outputs under: ", OUTROOT)
