@@ -181,16 +181,7 @@ tbl_icd_after <- make_table1_two_group(
 write_tbl(tbl_icd_after, "table1_icd_outcome_after.csv")
 
 # -----------------------------
-# Render PNGs
+# PNG rendering skipped on HPC / headless environments
+# CSVs are the required outputs
 # -----------------------------
-render_csv_to_png(
-  csv_path = file.path(OUTDIR_ICD, "table1_icd_outcome_before_missing.csv"),
-  png_path = file.path(OUTDIR_ICD, "table1_icd_outcome_before_missing.png")
-)
-
-render_csv_to_png(
-  csv_path = file.path(OUTDIR_ICD, "table1_icd_outcome_after.csv"),
-  png_path = file.path(OUTDIR_ICD, "table1_icd_outcome_after.png")
-)
-
-message("Done. ICD tables saved to: ", OUTDIR_ICD)
+message("PNG rendering skipped. ICD CSV tables saved to: ", OUTDIR_ICD)
