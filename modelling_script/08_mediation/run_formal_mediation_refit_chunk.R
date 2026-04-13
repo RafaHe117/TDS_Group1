@@ -15,6 +15,10 @@ dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 CONFIG_PATH <- file.path(INPUT_DIR, "formal_mediation_config.csv")
 
+if (!file.exists(CONFIG_PATH)) {
+  stop("Missing formal mediation config file: ", CONFIG_PATH)
+}
+
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 3) {
   stop("Usage: Rscript run_formal_mediation_refit_chunk.R <pair_csv> <job_label> <subgroup_label>")
@@ -287,6 +291,10 @@ df <- readRDS(DATA_PATH)
 global_missing <- setdiff(unique(c(OUTCOME, CONFOUNDERS)), names(df))
 if (length(global_missing) > 0) {
   stop("Global variables missing in data: ", paste(global_missing, collapse = ", "))
+}
+
+if (!file.exists(PAIR_CSV)) {
+  stop("Missing pair csv: ", PAIR_CSV)
 }
 
 pairs <- read_csv(PAIR_CSV, show_col_types = FALSE)
