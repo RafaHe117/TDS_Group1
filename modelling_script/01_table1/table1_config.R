@@ -1,9 +1,9 @@
-# analysis/table1/table1_config.R
+# modelling_script/01_table1/table1_config.R
 # ------------------------------------------------------------
 # Config for Table 1 pipeline (variables, labels, rules)
 # ------------------------------------------------------------
 
-# Data paths (absolute, using stability-style in_dir convention)
+# Data paths (aligned with successful univariate/FAMD-style in_dir convention)
 in_dir <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 PATH_CLEAN   <- file.path(in_dir, "ukb_G1_cleaned.rds")
 PATH_IMPUTED <- file.path(in_dir, "imputation", "ukb_G1_imputed.rds")
