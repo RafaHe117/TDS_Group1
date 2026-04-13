@@ -1,7 +1,7 @@
-# 01_table1/table1_run.R
+# modelling_script/01_table1/table1_run.R
 # ------------------------------------------------------------
 # Runner: generates 6 tables per spec
-# Output: CSVs under 01_table1/output/
+# Output: CSVs under modelling_script/01_table1/output/
 # ------------------------------------------------------------
 
 in_dir <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
@@ -17,14 +17,14 @@ clean   <- readRDS(PATH_CLEAN)
 imputed <- readRDS(PATH_IMPUTED)
 
 # Remove always-excluded vars from each set
-vars_main_use    <- setdiff(vars_main, vars_exclude_always)
-vars_appendix_use<- setdiff(vars_appendix, vars_exclude_always)
-vars_bio_use     <- setdiff(vars_bio, vars_exclude_always)
+vars_main_use     <- setdiff(vars_main, vars_exclude_always)
+vars_appendix_use <- setdiff(vars_appendix, vars_exclude_always)
+vars_bio_use      <- setdiff(vars_bio, vars_exclude_always)
 
 # Helper: write CSV with consistent naming
 write_tbl <- function(tbl, filename) {
   outpath <- file.path(OUTDIR, filename)
-  write.csv(tbl, outpath, row.names = FALSE)
+  write.csv(tbl, outpath, row.names = FALSE, na = "")
   message("Wrote: ", outpath)
 }
 
@@ -39,7 +39,7 @@ tbl_main_outcome_before <- make_table1_two_group(
   strata_var = "cvd_incident",
   strata_levels = c(0, 1),
   strata_labels = c(label_outcome_0, label_outcome_1),
-  add_missing_overall = TRUE,     # <-- REQUIRED
+  add_missing_overall = TRUE,
   collapse_topk = NULL
 )
 write_tbl(tbl_main_outcome_before, "table1_main_outcome_before.csv")
@@ -66,8 +66,8 @@ tbl_app_outcome_before <- make_table1_two_group(
   strata_var = "cvd_incident",
   strata_levels = c(0, 1),
   strata_labels = c(label_outcome_0, label_outcome_1),
-  add_missing_overall = TRUE,                 # <-- REQUIRED
-  collapse_topk = vars_appendix_use,          # collapse categoricals in appendix only
+  add_missing_overall = TRUE,
+  collapse_topk = vars_appendix_use,
   topk = TOPK_LEVELS
 )
 write_tbl(tbl_app_outcome_before, "table1_appendix_outcome_before_missing.csv")
@@ -97,7 +97,7 @@ tbl_bio_sex_before <- make_table1_two_group(
   strata_var = "sex",
   strata_levels = c("Female", "Male"),
   strata_labels = c(label_sex_f, label_sex_m),
-  add_missing_overall = TRUE,    # <-- REQUIRED
+  add_missing_overall = TRUE,
   collapse_topk = NULL
 )
 write_tbl(tbl_bio_sex_before, "table1_bio_bysex_before.csv")
