@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/TDS_Group1"
+PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 TABLE1_DIR="${PROJECT_ROOT}/modelling_script/01_table1"
 OUT_DIR="${TABLE1_DIR}/output"
 ICD_DIR="${TABLE1_DIR}/icd_cat_output"
