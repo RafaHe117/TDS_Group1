@@ -14,6 +14,10 @@ dir.create(SHORT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 RAW_EXPOSURE_PATH <- file.path(IN_DIR, "raw_exposure_universe.csv")
 
+if (!file.exists(RAW_EXPOSURE_PATH)) {
+  stop("Missing raw exposure universe file: ", RAW_EXPOSURE_PATH)
+}
+
 raw_exposure_universe <- read_csv(RAW_EXPOSURE_PATH, show_col_types = FALSE) %>%
   pull(exposure) %>%
   unique() %>%
@@ -79,8 +83,15 @@ build_shortlist_one <- function(label, p_cutoff = 0.05) {
   final_coef_path   <- file.path(OUT_DIR, "final_outcome_models", label,
                                  paste0("final_model_coefficients_", label, ".csv"))
   
-  stable_links <- read_csv(stable_links_path, show_col_types = FALSE)
-  final_coef   <- read_csv(final_coef_path, show_col_types = FALSE)
+  if (!file.exists(stable_links_path)) {
+  stop("Missing stable links file for ", label, ": ", stable_links_path)
+}
+if (!file.exists(final_coef_path)) {
+  stop("Missing final coefficient file for ", label, ": ", final_coef_path)
+}
+
+stable_links <- read_csv(stable_links_path, show_col_types = FALSE)
+final_coef   <- read_csv(final_coef_path, show_col_types = FALSE)
   
   sig_sets <- extract_sig_sets(final_coef, p_cutoff = p_cutoff)
   
