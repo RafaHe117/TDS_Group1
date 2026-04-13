@@ -19,6 +19,10 @@ dir.create(OUT_BASE, recursive = TRUE, showWarnings = FALSE)
 INPUT_DIR <- file.path(MED_DIR, "inputs")
 RAW_EXPOSURE_PATH <- file.path(INPUT_DIR, "raw_exposure_universe.csv")
 
+if (!file.exists(RAW_EXPOSURE_PATH)) {
+  stop("Missing raw exposure universe file: ", RAW_EXPOSURE_PATH)
+}
+
 raw_exposure_universe <- read_csv(RAW_EXPOSURE_PATH, show_col_types = FALSE) %>%
   pull(exposure) %>%
   unique() %>%
@@ -91,6 +95,10 @@ extract_selected_sets <- function(stable_links_df) {
 run_final_model <- function(df, analysis_name, stable_links_path, sex_subset = NULL) {
   out_dir <- file.path(OUT_BASE, analysis_name)
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  if (!file.exists(stable_links_path)) {
+    stop("Missing stable links file for ", analysis_name, ": ", stable_links_path)
+  }
   
   stable_links <- read_csv(stable_links_path, show_col_types = FALSE)
   sets <- extract_selected_sets(stable_links)
