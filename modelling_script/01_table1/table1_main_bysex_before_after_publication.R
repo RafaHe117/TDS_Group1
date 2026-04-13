@@ -14,18 +14,15 @@ suppressPackageStartupMessages({
   library(gridExtra)
 })
 
-in_dir <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
-table1_dir <- file.path(in_dir, "modelling_script", "01_table1")
-
-source(file.path(table1_dir, "table1_config.R"))
-source(file.path(table1_dir, "table1_utils.R"))
+source("01_table1/table1_config.R")
+source("01_table1/table1_utils.R")
 
 # -----------------------------
 # Options
 # -----------------------------
 RENDER_PNG <- TRUE
 
-OUTDIR_BYSEX <- file.path(table1_dir, "output_main_bysex_before_after_publication")
+OUTDIR_BYSEX <- file.path("analysis", "table1", "output_main_bysex_before_after_publication")
 dir.create(OUTDIR_BYSEX, recursive = TRUE, showWarnings = FALSE)
 
 # -----------------------------

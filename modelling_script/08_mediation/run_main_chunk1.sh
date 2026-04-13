@@ -3,7 +3,7 @@
 #PBS -o run_main_chunk1.out
 #PBS -e run_main_chunk1.err
 
-cd /rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1 || exit 1
+cd /rds/general/project/hda_25-26/live/TDS/TDS_Group1 || exit 1
 
 module purge
 module load tools/prod

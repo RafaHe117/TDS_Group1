@@ -1,6 +1,6 @@
 library(dplyr)
 
-setwd("/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1")
+setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
 
 ukb <- readRDS("ukb_G1_preprocessed.rds")
 dir.create("cleaning.output", showWarnings = FALSE, recursive = TRUE)

@@ -9,8 +9,8 @@
 
 set -euo pipefail
 
-PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
-TABLE1_DIR="${PROJECT_ROOT}/modelling_script/01_table1"
+PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/TDS_Group1"
+TABLE1_DIR="${PROJECT_ROOT}/01_table1"
 OUT_DIR="${TABLE1_DIR}/output"
 ICD_DIR="${TABLE1_DIR}/icd_cat_output"
 BYSEX_DIR="${TABLE1_DIR}/output_main_bysex_before_after"
@@ -72,7 +72,7 @@ check_dir () {
 echo
 echo "Checking required inputs and scripts..."
 check_file "${PROJECT_ROOT}/ukb_G1_cleaned.rds"
-check_file "${PROJECT_ROOT}/imputation/ukb_G1_imputed.rds"
+check_file "${PROJECT_ROOT}/ukb_G1_imputed.rds"
 
 check_file "${TABLE1_DIR}/table1_config.R"
 check_file "${TABLE1_DIR}/table1_utils.R"
@@ -85,7 +85,7 @@ check_file "${TABLE1_DIR}/render_table1_pub.R"
 echo "Pre-checks passed."
 
 run_step "Stage 1 - main table1 core run" \
-  "Rscript ${TABLE1_DIR}/table1_run.R"
+  "Rscript 01_table1/table1_run.R"
 
 echo
 echo "Checking Stage 1 outputs..."
@@ -97,7 +97,7 @@ check_file "${OUT_DIR}/table1_bio_bysex_before.csv"
 check_file "${OUT_DIR}/table1_bio_bysex_after.csv"
 
 run_step "Stage 2 - ICD table1 run" \
-  "Rscript ${TABLE1_DIR}/table1_icd_run.R"
+  "Rscript 01_table1/table1_icd_run.R"
 
 echo
 echo "Checking Stage 2 outputs..."
@@ -108,7 +108,7 @@ check_file "${ICD_DIR}/table1_icd_outcome_before_missing.png"
 check_file "${ICD_DIR}/table1_icd_outcome_after.png"
 
 run_step "Stage 3 - by-sex main table1 run" \
-  "Rscript ${TABLE1_DIR}/table1_main_bysex_before_after_run.R"
+  "Rscript 01_table1/table1_main_bysex_before_after_run.R"
 
 echo
 echo "Checking Stage 3 outputs..."
@@ -123,7 +123,7 @@ check_file "${BYSEX_DIR}/table1_main_male_outcome_before.png"
 check_file "${BYSEX_DIR}/table1_main_male_outcome_after.png"
 
 run_step "Stage 4 - by-sex publication table1 run" \
-  "Rscript ${TABLE1_DIR}/table1_main_bysex_before_after_publication.R"
+  "Rscript 01_table1/table1_main_bysex_before_after_publication.R"
 
 echo
 echo "Checking Stage 4 outputs..."
@@ -138,7 +138,7 @@ check_file "${BYSEX_PUB_DIR}/table1_main_male_outcome_before_publication.png"
 check_file "${BYSEX_PUB_DIR}/table1_main_male_outcome_after_publication.png"
 
 run_step "Stage 5 - render core output CSVs to PNG" \
-  "Rscript ${TABLE1_DIR}/render_table1_pub.R"
+  "Rscript 01_table1/render_table1_pub.R"
 
 echo
 echo "Checking Stage 5 outputs..."

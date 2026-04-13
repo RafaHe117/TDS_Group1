@@ -5,11 +5,11 @@ suppressPackageStartupMessages({
   library(tibble)
 })
 
-BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/TDS_Group1"
 
 DATA_PATH <- file.path(BASE_DIR, "split_imputed_data/ukb_G1_train_imputed.rds")
 
-MED_DIR <- file.path(BASE_DIR, "modelling_script", "08_mediation")
+MED_DIR <- file.path(BASE_DIR, "analysis", "mediation")
 OUT_BASE <- file.path(MED_DIR, "outputs", "final_outcome_models")
 dir.create(OUT_BASE, recursive = TRUE, showWarnings = FALSE)
 

@@ -8,10 +8,8 @@ suppressWarnings({
 
 library(grid)
 
-in_dir <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
-table1_dir <- file.path(in_dir, "modelling_script", "01_table1")
-IN_DIR  <- file.path(table1_dir, "output")
-OUT_DIR <- file.path(table1_dir, "output", "output_rendered_png")  # same as your old folder
+IN_DIR  <- file.path("analysis", "table1", "output")
+OUT_DIR <- file.path("analysis", "table1", "output", "output_rendered_png")  # same as your old folder
 dir.create(OUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # 1) DELETE old PNGs so only updated outputs remain
@@ -230,7 +228,7 @@ suppressPackageStartupMessages({
   library(gridExtra)
 })
 
-CSV_DIR  <- file.path(table1_dir, "output")
+CSV_DIR  <- file.path("analysis", "table1", "output")
 PNG_DIR  <- file.path(CSV_DIR, "output_rendered_png")
 
 # long image sizing (tune if needed)

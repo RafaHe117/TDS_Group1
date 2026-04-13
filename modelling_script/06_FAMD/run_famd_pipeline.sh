@@ -9,8 +9,8 @@
 
 set -euo pipefail
 
-PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
-FAMD_DIR="${PROJECT_ROOT}/modelling_script/06_FAMD"
+PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/TDS_Group1"
+FAMD_DIR="${PROJECT_ROOT}/06_FAMD"
 OUT_DIR="${FAMD_DIR}/FAMD_output"
 LOG_DIR="${FAMD_DIR}/logs"
 
@@ -67,7 +67,7 @@ check_dir () {
 
 echo
 echo "Checking required inputs..."
-check_file "${PROJECT_ROOT}/imputation/ukb_G1_imputed.rds"
+check_file "${PROJECT_ROOT}/ukb_G1_imputed.rds"
 check_file "${PROJECT_ROOT}/split_imputed_data/ukb_G1_train_imputed.rds"
 check_file "${FAMD_DIR}/check_famd_variance_only.R"
 check_file "${FAMD_DIR}/pseudo_famd_run.R"
@@ -75,10 +75,10 @@ check_file "${FAMD_DIR}/pseudo_famd_run.R"
 echo "Pre-checks passed."
 
 run_step "Stage 1 - variance check" \
-  "Rscript ${FAMD_DIR}/check_famd_variance_only.R"
+  "Rscript 06_FAMD/check_famd_variance_only.R"
 
 run_step "Stage 2 - pseudo FAMD main run" \
-  "Rscript ${FAMD_DIR}/pseudo_famd_run.R"
+  "Rscript 06_FAMD/pseudo_famd_run.R"
 
 echo
 echo "Checking expected output structure..."
