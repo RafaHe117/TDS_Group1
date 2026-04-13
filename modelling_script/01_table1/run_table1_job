@@ -1,16 +1,19 @@
 #!/bin/bash
 #$ -N table1_yl
 #$ -cwd
-#$ -o modelling_script/01_table1/output/table1_job.out
-#$ -e modelling_script/01_table1/output/table1_job.err
+#$ -o modelling_script/01_table1/logs/table1_job.out
+#$ -e modelling_script/01_table1/logs/table1_job.err
 #$ -l h_rt=00:30:00
 #$ -l mem=8G
 #$ -pe smp 1
+
+set -euo pipefail
 
 module purge
 module load tools/prod
 module load R/4.3.2-gfbf-2023a
 
-cd /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1
+cd /rds/general/project/hda_25-26/live/TDS/TDS_Group1
+mkdir -p modelling_script/01_table1/logs
 
 Rscript modelling_script/01_table1/table1_run.R
