@@ -1,8 +1,8 @@
 #!/bin/bash
 #$ -N med_pipeline
 #$ -cwd
-#$ -o 08_mediation/mediation_pipeline.out
-#$ -e 08_mediation/mediation_pipeline.err
+#$ -o modelling_script/08_mediation/logs/mediation_pipeline.out
+#$ -e modelling_script/08_mediation/logs/mediation_pipeline.err
 #$ -l h_rt=24:00:00
 #$ -l mem=32G
 #$ -pe smp 4
@@ -58,10 +58,18 @@ check_file () {
   fi
 }
 
+check_dir () {
+  if [ ! -d "$1" ]; then
+    echo "ERROR: Required directory not found:"
+    echo "  $1"
+    exit 1
+  fi
+}
+
 echo
 echo "Checking required directories..."
-[ -d "${MED_DIR}" ] || { echo "ERROR: Missing mediation directory: ${MED_DIR}"; exit 1; }
-[ -d "${INPUT_DIR}" ] || { echo "ERROR: Missing inputs directory: ${INPUT_DIR}"; exit 1; }
+check_dir "${MED_DIR}"
+check_dir "${INPUT_DIR}"
 
 echo "Checking required static input files..."
 check_file "${INPUT_DIR}/formal_mediation_config.csv"
@@ -127,16 +135,16 @@ check_file "${INPUT_DIR}/pairs_female_chunk1.csv"
 check_file "${INPUT_DIR}/pairs_female_chunk2.csv"
 
 run_step "Stage 5a - formal mediation refit main chunk 1" \
-  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R 08_mediation/inputs/pairs_main_chunk1.csv main_chunk1 all"
+  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_main_chunk1.csv main_chunk1 all"
 
 run_step "Stage 5b - formal mediation refit main chunk 2" \
-  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R 08_mediation/inputs/pairs_main_chunk2.csv main_chunk2 all"
+  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_main_chunk2.csv main_chunk2 all"
 
 run_step "Stage 5c - formal mediation refit female chunk 1" \
-  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R 08_mediation/inputs/pairs_female_chunk1.csv female_chunk1 female"
+  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_female_chunk1.csv female_chunk1 female"
 
 run_step "Stage 5d - formal mediation refit female chunk 2" \
-  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R 08_mediation/inputs/pairs_female_chunk2.csv female_chunk2 female"
+  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_female_chunk2.csv female_chunk2 female"
 
 echo
 echo "Checking Stage 5 outputs..."
