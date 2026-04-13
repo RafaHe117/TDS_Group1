@@ -26,7 +26,7 @@ source(file.path(table1_dir, "table1_utils.R"))
 # -----------------------------
 # Options
 # -----------------------------
-RENDER_PNG <- TRUE
+RENDER_PNG <- FALSE
 
 # Put all new outputs in a separate folder
 OUTDIR_BYSEX <- file.path(table1_dir, "output_main_bysex_before_after")
