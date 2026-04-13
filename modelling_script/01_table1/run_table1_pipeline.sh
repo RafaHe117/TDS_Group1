@@ -72,7 +72,7 @@ check_dir () {
 echo
 echo "Checking required inputs and scripts..."
 check_file "${PROJECT_ROOT}/ukb_G1_cleaned.rds"
-check_file "${PROJECT_ROOT}/ukb_G1_imputed.rds"
+check_file "${PROJECT_ROOT}/imputation/ukb_G1_imputed.rds"
 
 check_file "${TABLE1_DIR}/table1_config.R"
 check_file "${TABLE1_DIR}/table1_utils.R"
@@ -84,7 +84,7 @@ check_file "${TABLE1_DIR}/table1_main_bysex_before_after_publication.R"
 echo "Pre-checks passed."
 
 run_step "Stage 1 - main table1 core run" \
-  "Rscript modelling_script/01_table1/table1_run.R"
+  "Rscript ${TABLE1_DIR}/table1_run.R"
 
 echo
 echo "Checking Stage 1 outputs..."
@@ -96,7 +96,7 @@ check_file "${OUT_DIR}/table1_bio_bysex_before.csv"
 check_file "${OUT_DIR}/table1_bio_bysex_after.csv"
 
 run_step "Stage 2 - ICD table1 run" \
-  "Rscript modelling_script/01_table1/table1_icd_run.R"
+  "Rscript ${TABLE1_DIR}/table1_icd_run.R"
 
 echo
 echo "Checking Stage 2 outputs..."
@@ -105,7 +105,7 @@ check_file "${ICD_DIR}/table1_icd_outcome_before_missing.csv"
 check_file "${ICD_DIR}/table1_icd_outcome_after.csv"
 
 run_step "Stage 3 - by-sex main table1 run" \
-  "Rscript modelling_script/01_table1/table1_main_bysex_before_after_run.R"
+  "Rscript ${TABLE1_DIR}/table1_main_bysex_before_after_run.R"
 
 echo
 echo "Checking Stage 3 outputs..."
@@ -116,7 +116,7 @@ check_file "${BYSEX_DIR}/table1_main_male_outcome_before.csv"
 check_file "${BYSEX_DIR}/table1_main_male_outcome_after.csv"
 
 run_step "Stage 4 - by-sex publication table1 run" \
-  "Rscript modelling_script/01_table1/table1_main_bysex_before_after_publication.R"
+  "Rscript ${TABLE1_DIR}/table1_main_bysex_before_after_publication.R"
 
 echo
 echo "Checking Stage 4 outputs..."
