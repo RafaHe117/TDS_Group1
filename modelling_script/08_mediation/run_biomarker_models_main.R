@@ -211,6 +211,12 @@ for (i in seq_along(biomarkers)) {
   )
 }
 
+results <- Filter(Negate(is.null), results)
+
+if (length(results) == 0) {
+  stop("No valid biomarker stability results were produced.", call. = FALSE)
+}
+
 final_res <- bind_rows(results)
 
 write_csv(
