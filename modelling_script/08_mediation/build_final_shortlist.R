@@ -80,18 +80,20 @@ extract_sig_sets <- function(coef_df, p_cutoff = 0.05) {
 
 build_shortlist_one <- function(label, p_cutoff = 0.05) {
   stable_links_path <- file.path(OUT_DIR, label, paste0("stable_links_", label, ".csv"))
-  final_coef_path   <- file.path(OUT_DIR, "final_outcome_models", label,
-                                 paste0("final_model_coefficients_", label, ".csv"))
+  final_coef_path   <- file.path(
+    OUT_DIR, "final_outcome_models", label,
+    paste0("final_model_coefficients_", label, ".csv")
+  )
   
   if (!file.exists(stable_links_path)) {
-  stop("Missing stable links file for ", label, ": ", stable_links_path)
-}
-if (!file.exists(final_coef_path)) {
-  stop("Missing final coefficient file for ", label, ": ", final_coef_path)
-}
-
-stable_links <- read_csv(stable_links_path, show_col_types = FALSE)
-final_coef   <- read_csv(final_coef_path, show_col_types = FALSE)
+    stop("Missing stable links file for ", label, ": ", stable_links_path)
+  }
+  if (!file.exists(final_coef_path)) {
+    stop("Missing final coefficient file for ", label, ": ", final_coef_path)
+  }
+  
+  stable_links <- read_csv(stable_links_path, show_col_types = FALSE)
+  final_coef   <- read_csv(final_coef_path, show_col_types = FALSE)
   
   sig_sets <- extract_sig_sets(final_coef, p_cutoff = p_cutoff)
   
