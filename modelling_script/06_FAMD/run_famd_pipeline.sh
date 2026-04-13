@@ -14,7 +14,8 @@ FAMD_DIR="${PROJECT_ROOT}/modelling_script/06_FAMD"
 OUT_DIR="${FAMD_DIR}/FAMD_output"
 LOG_DIR="${FAMD_DIR}/logs"
 
-mkdir -p "${LOG_DIR}"
+rm -rf "${OUT_DIR}"
+mkdir -p "${OUT_DIR}" "${LOG_DIR}"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 LOG_FILE="${LOG_DIR}/famd_pipeline_${TIMESTAMP}.log"
