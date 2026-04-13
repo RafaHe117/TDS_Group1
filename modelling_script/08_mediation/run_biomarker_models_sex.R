@@ -6,23 +6,7 @@ suppressPackageStartupMessages({
   library(parallelly)
 })
 
-find_project_root <- function(start = getwd()) {
-  cur <- normalizePath(start, winslash = "/", mustWork = TRUE)
-  repeat {
-    if (
-      dir.exists(file.path(cur, "split_imputed_data")) &&
-      dir.exists(file.path(cur, "modelling_script")) &&
-      dir.exists(file.path(cur, "analysis"))
-    ) {
-      return(cur)
-    }
-    parent <- dirname(cur)
-    if (parent == cur) {
-      stop("Could not locate project root from: ", start)
-    }
-    cur <- parent
-  }
-}
+project_root <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
 
 get_requested_cores <- function(default = 1L) {
   candidates <- c(
@@ -195,9 +179,7 @@ if (!sex_label %in% c("male", "female")) {
 
 set.seed(2026)
 
-project_root <- find_project_root()
-
-med_dir <- file.path(project_root, "analysis", "mediation")
+med_dir <- file.path(project_root, "modelling_script", "08_mediation")
 inputs_dir <- file.path(med_dir, "inputs")
 out_dir <- file.path(med_dir, "outputs", sex_label)
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)

@@ -14,6 +14,6 @@ module load R-bundle-CRAN/2024.11-foss-2024a
 
 export R_LIBS_USER=~/R/x86_64-pc-linux-gnu-library/4.3
 
-cd /rds/general/project/hda_25-26/live/TDS/TDS_Group1
+cd /rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1
 
 Rscript modelling_script/08_mediation/build_final_shortlist.R

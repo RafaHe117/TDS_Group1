@@ -3,7 +3,7 @@ library(dplyr)
 library(scales)
 library(forcats)
 
-setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
+setwd("/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1")
 
 ukb <- readRDS("ukb_G1_raw.rds")
 

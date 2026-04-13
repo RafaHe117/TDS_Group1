@@ -3,50 +3,32 @@ suppressPackageStartupMessages({
   library(readr)
 })
 
-find_project_root <- function(start = getwd()) {
-  cur <- normalizePath(start, winslash = "/", mustWork = TRUE)
-  repeat {
-    if (
-      dir.exists(file.path(cur, "split_imputed_data")) &&
-      dir.exists(file.path(cur, "modelling_script")) &&
-      dir.exists(file.path(cur, "analysis"))
-    ) {
-      return(cur)
-    }
-    parent <- dirname(cur)
-    if (parent == cur) {
-      stop("Could not locate project root from: ", start)
-    }
-    cur <- parent
-  }
-}
+project_root <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
 
-project_root <- find_project_root()
-
-med_dir <- file.path(project_root, "analysis", "mediation")
+med_dir <- file.path(project_root, "modelling_script", "08_mediation")
 inputs_dir <- file.path(med_dir, "inputs")
 dir.create(inputs_dir, recursive = TRUE, showWarnings = FALSE)
 
 main_raw_exposure_path <- file.path(
   project_root,
-  "modelling_script", "stability_analysis", "subsample_lasso", "exposure_list.csv"
+  "modelling_script", "09_stability_analysis", "subsample_lasso", "exposure_list.csv"
 )
 
 main_selected_path <- file.path(
   project_root,
-  "modelling_script", "stability_analysis", "subsample_lasso",
+  "modelling_script", "09_stability_analysis", "subsample_lasso",
   "selection_proportions_penalized.csv"
 )
 
 male_selected_path <- file.path(
   project_root,
-  "modelling_script", "stability_analysis", "subsample_lasso_sex", "male",
+  "modelling_script", "09_stability_analysis", "subsample_lasso_sex", "male",
   "selection_proportions_penalized_male.csv"
 )
 
 female_selected_path <- file.path(
   project_root,
-  "modelling_script", "stability_analysis", "subsample_lasso_sex", "female",
+  "modelling_script", "09_stability_analysis", "subsample_lasso_sex", "female",
   "selection_proportions_penalized_female.csv"
 )
 

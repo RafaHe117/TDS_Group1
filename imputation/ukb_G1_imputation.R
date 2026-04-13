@@ -1,6 +1,6 @@
 suppressPackageStartupMessages(library(miceRanger))
 
-setwd("/rds/general/project/hda_25-26/live/TDS/TDS_Group1")
+setwd("/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1")
 
 in_file  <- "ukb_G1_cleaned.rds"
 out_dir  <- "imputation"

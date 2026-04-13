@@ -4,8 +4,11 @@
 # Output: CSVs under 01_table1/output/
 # ------------------------------------------------------------
 
-source("01_table1/table1_config.R")
-source("01_table1/table1_utils.R")
+in_dir <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+table1_dir <- file.path(in_dir, "modelling_script", "01_table1")
+
+source(file.path(table1_dir, "table1_config.R"))
+source(file.path(table1_dir, "table1_utils.R"))
 
 dir.create(OUTDIR, showWarnings = FALSE, recursive = TRUE)
 
