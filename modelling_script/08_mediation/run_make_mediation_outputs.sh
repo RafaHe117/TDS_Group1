@@ -3,7 +3,7 @@
 #PBS -o run_make_mediation_outputs.out
 #PBS -e run_make_mediation_outputs.err
 
-cd /rds/general/project/hda_25-26/live/TDS/TDS_Group1 || exit 1
+cd /rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1 || exit 1
 
 module purge
 module load tools/prod

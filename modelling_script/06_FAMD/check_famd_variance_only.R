@@ -4,8 +4,9 @@ suppressPackageStartupMessages({})
 # -----------------------------
 # Paths
 # -----------------------------
-PATH_FINAL <- "ukb_G1_imputed.rds"
-PATH_TRAIN <- file.path("split_imputed_data", "ukb_G1_train_imputed.rds")
+in_dir <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+PATH_FINAL <- file.path(in_dir, "imputation", "ukb_G1_imputed.rds")
+PATH_TRAIN <- file.path(in_dir, "split_imputed_data", "ukb_G1_train_imputed.rds")
 
 # -----------------------------
 # Variable sets: pseudo_famd1a
