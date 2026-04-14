@@ -1,11 +1,9 @@
 #!/bin/bash
-#$ -N med_pipeline
-#$ -cwd
-#$ -o modelling_script/08_mediation/logs/mediation_pipeline.out
-#$ -e modelling_script/08_mediation/logs/mediation_pipeline.err
-#$ -l h_rt=24:00:00
-#$ -l mem=32G
-#$ -pe smp 4
+#PBS -N med_pipeline
+#PBS -l walltime=24:00:00
+#PBS -l select=1:ncpus=4:mem=32gb
+#PBS -o /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/modelling_script/08_mediation/logs/mediation_pipeline.out
+#PBS -e /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/modelling_script/08_mediation/logs/mediation_pipeline.err
 
 set -euo pipefail
 
@@ -27,6 +25,7 @@ echo "Mediation pipeline started"
 echo "Time: $(date)"
 echo "Host: $(hostname)"
 echo "Project root: ${PROJECT_ROOT}"
+echo "Mediation dir: ${MED_DIR}"
 echo "Log file: ${LOG_FILE}"
 echo "=================================================="
 
@@ -77,10 +76,10 @@ check_file "${INPUT_DIR}/formal_mediation_config.csv"
 echo "Pre-checks passed."
 
 run_step "Stage 1a - create biomarker candidates" \
-  "Rscript modelling_script/08_mediation/create_biomarker_candidates.R"
+  "Rscript ${MED_DIR}/create_biomarker_candidates.R"
 
 run_step "Stage 1b - build exposure list" \
-  "Rscript modelling_script/08_mediation/build_exposure_list.R"
+  "Rscript ${MED_DIR}/build_exposure_list.R"
 
 echo
 echo "Checking generated Stage 1 files..."
@@ -91,13 +90,13 @@ check_file "${INPUT_DIR}/selected_terms_female.csv"
 check_file "${INPUT_DIR}/selected_terms_male.csv"
 
 run_step "Stage 2a - pooled biomarker screening" \
-  "Rscript modelling_script/08_mediation/run_biomarker_models_main.R"
+  "Rscript ${MED_DIR}/run_biomarker_models_main.R"
 
 run_step "Stage 2b - female biomarker screening" \
-  "Rscript modelling_script/08_mediation/run_biomarker_models_sex.R female 0"
+  "Rscript ${MED_DIR}/run_biomarker_models_sex.R female 0"
 
 run_step "Stage 2c - male biomarker screening" \
-  "Rscript modelling_script/08_mediation/run_biomarker_models_sex.R male 1"
+  "Rscript ${MED_DIR}/run_biomarker_models_sex.R male 1"
 
 echo
 echo "Checking Stage 2 outputs..."
@@ -106,7 +105,7 @@ check_file "${OUTPUT_DIR}/female/stable_links_female.csv"
 check_file "${OUTPUT_DIR}/male/stable_links_male.csv"
 
 run_step "Stage 3 - final outcome models" \
-  "Rscript modelling_script/08_mediation/run_final_outcome_models.R"
+  "Rscript ${MED_DIR}/run_final_outcome_models.R"
 
 echo
 echo "Checking Stage 3 outputs..."
@@ -115,7 +114,7 @@ check_file "${OUTPUT_DIR}/final_outcome_models/female/final_model_coefficients_f
 check_file "${OUTPUT_DIR}/final_outcome_models/male/final_model_coefficients_male.csv"
 
 run_step "Stage 4 - build final shortlist" \
-  "Rscript modelling_script/08_mediation/build_final_shortlist.R"
+  "Rscript ${MED_DIR}/build_final_shortlist.R"
 
 echo
 echo "Checking Stage 4 outputs..."
@@ -135,16 +134,16 @@ check_file "${INPUT_DIR}/pairs_female_chunk1.csv"
 check_file "${INPUT_DIR}/pairs_female_chunk2.csv"
 
 run_step "Stage 5a - formal mediation refit main chunk 1" \
-  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_main_chunk1.csv main_chunk1 all"
+  "Rscript ${MED_DIR}/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_main_chunk1.csv main_chunk1 all"
 
 run_step "Stage 5b - formal mediation refit main chunk 2" \
-  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_main_chunk2.csv main_chunk2 all"
+  "Rscript ${MED_DIR}/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_main_chunk2.csv main_chunk2 all"
 
 run_step "Stage 5c - formal mediation refit female chunk 1" \
-  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_female_chunk1.csv female_chunk1 female"
+  "Rscript ${MED_DIR}/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_female_chunk1.csv female_chunk1 female"
 
 run_step "Stage 5d - formal mediation refit female chunk 2" \
-  "Rscript modelling_script/08_mediation/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_female_chunk2.csv female_chunk2 female"
+  "Rscript ${MED_DIR}/run_formal_mediation_refit_chunk.R ${INPUT_DIR}/pairs_female_chunk2.csv female_chunk2 female"
 
 echo
 echo "Checking Stage 5 outputs..."
@@ -157,7 +156,7 @@ echo
 echo "Male formal mediation refit is not run in this pipeline because no strict shortlisted male pathway entered the formal refit stage."
 
 run_step "Stage 6 - make mediation outputs" \
-  "Rscript modelling_script/08_mediation/make_mediation_outputs.R"
+  "Rscript ${MED_DIR}/make_mediation_outputs.R"
 
 echo
 echo "Checking Stage 6 outputs..."
