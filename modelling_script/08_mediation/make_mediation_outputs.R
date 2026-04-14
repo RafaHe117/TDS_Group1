@@ -14,7 +14,7 @@ options(bitmapType = "cairo")
 # paths
 # =========================================================
 BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
-MED_DIR <- file.path(BASE_DIR, "modelling_script", "08_mediation")
+MED_DIR  <- file.path(BASE_DIR, "modelling_script", "08_mediation")
 
 REFIT_SPLIT_DIR <- file.path(
   MED_DIR, "outputs", "formal_mediation_refit_split"
@@ -29,6 +29,13 @@ OUT_DIR <- file.path(
 )
 
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
+
+if (!dir.exists(REFIT_SPLIT_DIR)) {
+  stop("Missing refit split output directory: ", REFIT_SPLIT_DIR)
+}
+if (!dir.exists(SHORTLIST_DIR)) {
+  stop("Missing shortlist directory: ", SHORTLIST_DIR)
+}
 
 ANALYSES_TO_KEEP <- c("main", "female")
 
@@ -390,6 +397,19 @@ save_layered_single <- function(df, panel_title, out_path, show_effect = FALSE) 
 main_df <- combine_analysis_results(REFIT_SPLIT_DIR, "main")
 female_df <- combine_analysis_results(REFIT_SPLIT_DIR, "female")
 
+if (is.null(main_df)) {
+  stop("No combined mediation results found for main.")
+}
+if (is.null(female_df)) {
+  stop("No combined mediation results found for female.")
+}
+if (nrow(main_df) == 0) {
+  stop("main_df has 0 rows after combining mediation results.")
+}
+if (nrow(female_df) == 0) {
+  stop("female_df has 0 rows after combining mediation results.")
+}
+
 # save merged raw csv
 write_csv(main_df, file.path(OUT_DIR, "final_mediation_results_main.csv"))
 write_csv(female_df, file.path(OUT_DIR, "final_mediation_results_female.csv"))
@@ -418,7 +438,6 @@ save_table_png(
   height = 4.8 + 0.45 * nrow(female_table),
   base_size = 11
 )
-
 
 # forest plots
 make_forest_plot(
@@ -473,4 +492,3 @@ save_layered_single(
 )
 
 cat("All mediation outputs saved to:\n", OUT_DIR, "\n")
-
