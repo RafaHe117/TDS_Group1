@@ -10,6 +10,131 @@ in_dir <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
 # Reuse helper functions from 
 # sex_difference_visual.R: assign_domain(), make_pretty_names()
 # stability_sex.R: prepare_xy()
+assign_domain <- function(term) {
+  case_when(
+    str_detect(term, "imd|employment|education|income|deprivation") ~ "Socioeconomic",
+    str_detect(term, "alcohol|smoking|salt|fruit|fish|tea|coffee|sleep|tv|met|work_hours|physical|activity|redwine|sf_score") ~ "Lifestyle / Behaviour",
+    str_detect(term, "bmi|famhx|family|birth_weight|neurotic|stress|satis") ~ "Clinical / Family",
+    str_detect(term, "pm10|pm2_5|no2|noise|greenspace|temp|urban|living") ~ "Environmental",
+    TRUE ~ "Other"
+  )
+}
+
+make_pretty_names <- function(x) {
+  out <- x
+  
+  out <- str_replace(out, "^tv_group", "TV time: ")
+  out <- str_replace(out, "^total_met_group", "Physical activity: ")
+  out <- str_replace(out, "^smoking_3cat", "Smoking status: ")
+  out <- str_replace(out, "^alcohol_combined", "Alcohol intake: ")
+  out <- str_replace(out, "^redwine_group", "Redwine intake: ")
+  out <- str_replace(out, " drinker$", "")
+  out <- str_replace(out, "^sf_score$", "Saturated fat score")
+  out <- str_replace(out, "^salt_3cat", "Salt intake: ")
+  out <- str_replace(out, "^education_2", "Education: ")
+  out <- str_replace(out, "^employment_2cat", "Employment: ")
+  out <- str_replace(out, "^imd_quintile", "IMD quintile: ")
+  out <- str_replace(out, "^oily_fish_3cat", "Oily fish intake: ")
+  out <- str_replace(out, "^urban_rural_2cat", "Urban/rural: ")
+  out <- str_replace(out, "^living_with_partner", "Living with partner: ")
+  out <- str_replace(out, "^stress_group_2yr", "Stress group: ")
+  
+  out <- str_replace(out, "^fruit_intake_fresh$", "Fresh fruit intake")
+  out <- str_replace(out, "^tea_intake$", "Tea intake")
+  out <- str_replace(out, "^coffee_intake$", "Coffee intake")
+  out <- str_replace(out, "^sleep_quality_score$", "Sleep quality score")
+  out <- str_replace(out, "^stress_count_2yr$", "Stress count (2 years)")
+  out <- str_replace(out, "^mh_satis_mean_score$", "satisfaction score")
+  out <- str_replace(out, "^neuroticism_score$", "Neuroticism score")
+  out <- str_replace(out, "^work_hours_week_clean$", "Work hours per week")
+  out <- str_replace(out, "^greenspace_pct_1000m$", "Greenspace within 1000 m")
+  out <- str_replace(out, "^temp_average$", "Average temperature")
+  out <- str_replace(out, "^noise_24h$", "24 h noise")
+  out <- str_replace(out, "^pm10_2010$", "PM10 (2010)")
+  out <- str_replace(out, "^pm2_5_2010$", "PM2.5 (2010)")
+  out <- str_replace(out, "^no2_2010$", "NO2 (2010)")
+  out <- str_replace(out, "^bmi$", "BMI")
+  
+  out |>
+    str_replace_all("_", " ") |>
+    str_replace_all("pm2 5", "PM2.5") |>
+    str_replace_all("pm10", "PM10") |>
+    str_replace_all("no2", "NO2") |>
+    str_replace_all("imd", "IMD") |>
+    str_replace_all("bmi", "BMI") |>
+    str_replace_all("tv", "TV") |>
+    str_replace_all("cvd", "CVD") |>
+    str_replace_all("3cat", "") |>
+    str_replace_all("2cat", "") |>
+    str_replace_all("Current-", "") |>
+    str_replace_all(">", "> ") |>
+    str_replace_all("鈥", "–") |>
+    str_squish()
+}
+
+prepare_xy <- function(train_sub, test_sub, preds) {
+  x_tr <- train_sub[, preds, drop = FALSE]
+  x_te <- test_sub[, preds, drop = FALSE]
+  
+  temp_vars <- grep("^temp", names(x_tr), value = TRUE)
+  for (v in temp_vars) {
+    if (is.factor(x_tr[[v]])) {
+      x_tr[[v]] <- as.numeric(as.character(x_tr[[v]]))
+      x_te[[v]] <- as.numeric(as.character(x_te[[v]]))
+    } else if (is.character(x_tr[[v]])) {
+      x_tr[[v]] <- as.numeric(x_tr[[v]])
+      x_te[[v]] <- as.numeric(x_te[[v]])
+    }
+  }
+  
+  char_vars <- names(x_tr)[sapply(x_tr, is.character)]
+  for (v in char_vars) {
+    x_tr[[v]] <- factor(x_tr[[v]])
+    x_te[[v]] <- factor(x_te[[v]], levels = levels(x_tr[[v]]))
+  }
+  
+  factor_vars <- names(x_tr)[sapply(x_tr, is.factor)]
+  for (v in factor_vars) {
+    x_te[[v]] <- factor(x_te[[v]], levels = levels(x_tr[[v]]))
+  }
+  
+  num_vars <- preds[sapply(x_tr[preds], is.numeric)]
+  for (v in num_vars) {
+    mu <- mean(x_tr[[v]], na.rm = TRUE)
+    sdv <- sd(x_tr[[v]], na.rm = TRUE)
+    if (is.na(sdv) || sdv == 0) {
+      x_tr[[v]] <- 0
+      x_te[[v]] <- 0
+    } else {
+      x_tr[[v]] <- (x_tr[[v]] - mu) / sdv
+      x_te[[v]] <- (x_te[[v]] - mu) / sdv
+    }
+  }
+  
+  X_tr <- sparse.model.matrix(~ . - 1, data = x_tr)
+  X_te <- sparse.model.matrix(~ . - 1, data = x_te)
+  
+  miss <- setdiff(colnames(X_tr), colnames(X_te))
+  if (length(miss) > 0) {
+    X_te <- cbind(
+      X_te,
+      Matrix(
+        0,
+        nrow = nrow(X_te),
+        ncol = length(miss),
+        sparse = TRUE,
+        dimnames = list(NULL, miss)
+      )
+    )
+  }
+  
+  X_te <- X_te[, colnames(X_tr), drop = FALSE]
+  
+  list(
+    X_tr_mat = as.matrix(X_tr),
+    X_te_mat = as.matrix(X_te)
+  )
+}
 
 ################################################################################
 # 0. Maps a dummy term back to its parent variable
