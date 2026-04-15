@@ -14,7 +14,7 @@ suppressPackageStartupMessages({
   library(grid)
 })
 
-in_dir <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+in_dir <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 table1_dir <- file.path(in_dir, "modelling_script", "01_table1")
 
 source(file.path(table1_dir, "table1_config.R"))
@@ -181,16 +181,7 @@ tbl_icd_after <- make_table1_two_group(
 write_tbl(tbl_icd_after, "table1_icd_outcome_after.csv")
 
 # -----------------------------
-# Render PNGs
+# PNG rendering skipped on HPC / headless environments
+# CSVs are the required outputs
 # -----------------------------
-render_csv_to_png(
-  csv_path = file.path(OUTDIR_ICD, "table1_icd_outcome_before_missing.csv"),
-  png_path = file.path(OUTDIR_ICD, "table1_icd_outcome_before_missing.png")
-)
-
-render_csv_to_png(
-  csv_path = file.path(OUTDIR_ICD, "table1_icd_outcome_after.csv"),
-  png_path = file.path(OUTDIR_ICD, "table1_icd_outcome_after.png")
-)
-
-message("Done. ICD tables saved to: ", OUTDIR_ICD)
+message("PNG rendering skipped. ICD CSV tables saved to: ", OUTDIR_ICD)

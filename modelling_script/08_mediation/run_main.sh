@@ -1,8 +1,8 @@
 #!/bin/bash
 #$ -N med_main
 #$ -cwd
-#$ -o modelling_script/08_mediation/main.out
-#$ -e modelling_script/08_mediation/main.err
+#$ -o modelling_script/08_mediation_outdated/main.out
+#$ -e modelling_script/08_mediation_outdated/main.err
 #$ -l h_rt=06:00:00
 #$ -l mem=32G
 #$ -pe smp 4
@@ -11,6 +11,6 @@ module purge
 module load tools/prod
 module load R/4.3.2-gfbf-2023a
 
-cd /rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1
+cd /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1
 
-Rscript modelling_script/08_mediation/run_biomarker_models_main.R
+Rscript modelling_script/08_mediation_outdated/run_biomarker_models_main.R

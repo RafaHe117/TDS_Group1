@@ -8,7 +8,7 @@ suppressWarnings({
 
 library(grid)
 
-in_dir <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+in_dir <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 table1_dir <- file.path(in_dir, "modelling_script", "01_table1")
 IN_DIR  <- file.path(table1_dir, "output")
 OUT_DIR <- file.path(table1_dir, "output", "output_rendered_png")  # same as your old folder

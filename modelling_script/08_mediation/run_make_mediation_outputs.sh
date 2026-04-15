@@ -3,7 +3,7 @@
 #PBS -o run_make_mediation_outputs.out
 #PBS -e run_make_mediation_outputs.err
 
-cd /rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1 || exit 1
+cd /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1 || exit 1
 
 module purge
 module load tools/prod
@@ -12,4 +12,4 @@ module load R-bundle-CRAN/2024.11-foss-2024a
 
 export R_LIBS_USER=~/R/x86_64-pc-linux-gnu-library/4.3
 
-Rscript modelling_script/08_mediation/make_mediation_outputs.R
+Rscript modelling_script/08_mediation_outdated/make_mediation_outputs.R

@@ -13,8 +13,8 @@ options(bitmapType = "cairo")
 # =========================================================
 # paths
 # =========================================================
-BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
-MED_DIR <- file.path(BASE_DIR, "modelling_script", "08_mediation")
+BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
+MED_DIR <- file.path(BASE_DIR, "modelling_script", "08_mediation_outdated")
 
 REFIT_SPLIT_DIR <- file.path(
   MED_DIR, "outputs", "formal_mediation_refit_split"
@@ -389,6 +389,14 @@ save_layered_single <- function(df, panel_title, out_path, show_effect = FALSE) 
 # =========================================================
 main_df <- combine_analysis_results(REFIT_SPLIT_DIR, "main")
 female_df <- combine_analysis_results(REFIT_SPLIT_DIR, "female")
+
+if (is.null(main_df) || nrow(main_df) == 0) {
+  stop("No combined formal mediation results available for main analysis.")
+}
+
+if (is.null(female_df) || nrow(female_df) == 0) {
+  stop("No combined formal mediation results available for female analysis.")
+}
 
 # save merged raw csv
 write_csv(main_df, file.path(OUT_DIR, "final_mediation_results_main.csv"))

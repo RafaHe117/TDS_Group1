@@ -3,13 +3,12 @@
 #$ -cwd
 #$ -o 06_FAMD/famd_pipeline.out
 #$ -e 06_FAMD/famd_pipeline.err
-#$ -l h_rt=08:00:00
-#$ -l mem=24G
-#$ -pe smp 2
-
+#$ -l h_rt=12:00:00
+#$ -l mem=64G
+#$ -pe smp 4
 set -euo pipefail
 
-PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 FAMD_DIR="${PROJECT_ROOT}/modelling_script/06_FAMD"
 OUT_DIR="${FAMD_DIR}/FAMD_output"
 LOG_DIR="${FAMD_DIR}/logs"

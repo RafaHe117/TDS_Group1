@@ -5,8 +5,8 @@ suppressPackageStartupMessages({
   library(stringr)
 })
 
-BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
-MED_DIR  <- file.path(BASE_DIR, "modelling_script", "08_mediation")
+BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
+MED_DIR  <- file.path(BASE_DIR, "modelling_script", "08_mediation_outdated")
 DATA_PATH <- file.path(BASE_DIR, "split_imputed_data", "ukb_G1_train_imputed.rds")
 
 INPUT_DIR <- file.path(MED_DIR, "inputs")
@@ -27,6 +27,9 @@ SUBGROUP_LABEL <- args[3]   # use: all / female / male
 # --------------------------------------------------
 # config
 # --------------------------------------------------
+if (!file.exists(CONFIG_PATH)) {
+  stop("Missing config file: ", CONFIG_PATH)
+}
 cfg <- read_csv(CONFIG_PATH, show_col_types = FALSE)
 
 get_cfg <- function(k) {
@@ -289,12 +292,18 @@ if (length(global_missing) > 0) {
   stop("Global variables missing in data: ", paste(global_missing, collapse = ", "))
 }
 
+if (!file.exists(PAIR_CSV)) {
+  stop("Missing pair csv: ", PAIR_CSV)
+}
 pairs <- read_csv(PAIR_CSV, show_col_types = FALSE)
 
 req_cols <- c("analysis", "subgroup_label", "exposure_var", "exposure_term", "mediator")
 miss <- setdiff(req_cols, names(pairs))
 if (length(miss) > 0) {
   stop("Pair csv missing columns: ", paste(miss, collapse = ", "))
+}
+if (nrow(pairs) == 0) {
+  stop("Pair csv has 0 rows: ", PAIR_CSV)
 }
 
 subgroup_value <- infer_subset_value(SUBGROUP_LABEL, df[[SEX_VAR]])

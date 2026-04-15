@@ -6,7 +6,7 @@ suppressPackageStartupMessages({
   library(parallelly)
 })
 
-project_root <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+project_root <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 
 get_requested_cores <- function(default = 1L) {
   candidates <- c(
@@ -167,7 +167,7 @@ run_one_biomarker <- function(df, biomarker, predictors, selected_terms, confoun
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) < 1) {
-  stop("Usage: Rscript modelling_script/08_mediation/run_biomarker_models_sex.R <male|female> [sex_value_override]")
+  stop("Usage: Rscript modelling_script/08_mediation_outdated/run_biomarker_models_sex.R <male|female> [sex_value_override]")
 }
 
 sex_label <- tolower(args[1])
@@ -179,7 +179,7 @@ if (!sex_label %in% c("male", "female")) {
 
 set.seed(2026)
 
-med_dir <- file.path(project_root, "modelling_script", "08_mediation")
+med_dir <- file.path(project_root, "modelling_script", "08_mediation_outdated")
 inputs_dir <- file.path(med_dir, "inputs")
 out_dir <- file.path(med_dir, "outputs", sex_label)
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -204,6 +204,9 @@ confounders <- c("age", "ethnicity_5cat")
 
 sex_mask <- resolve_sex_mask(df$sex, sex_label, sex_value_override)
 df <- df[sex_mask %in% TRUE & !is.na(sex_mask), , drop = FALSE]
+if (nrow(df) == 0) {
+  stop("No rows left after applying sex subset: ", sex_label)
+}
 
 raw_exposure_vars <- read_csv(raw_exposure_path, show_col_types = FALSE)$exposure
 raw_exposure_vars <- raw_exposure_vars[raw_exposure_vars %in% names(df)]
@@ -264,6 +267,9 @@ for (i in seq_along(biomarkers)) {
 }
 
 final_res <- bind_rows(results)
+if (nrow(final_res) == 0 || !all(c("term_role", "selected", "selection_proportion", "term", "biomarker") %in% names(final_res))) {
+  stop("No valid biomarker stability results were generated for sex-stratified analysis: ", sex_label)
+}
 
 write_csv(
   final_res,

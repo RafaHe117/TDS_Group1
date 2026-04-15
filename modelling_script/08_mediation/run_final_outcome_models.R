@@ -5,11 +5,11 @@ suppressPackageStartupMessages({
   library(tibble)
 })
 
-BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 
 DATA_PATH <- file.path(BASE_DIR, "split_imputed_data/ukb_G1_train_imputed.rds")
 
-MED_DIR <- file.path(BASE_DIR, "modelling_script", "08_mediation")
+MED_DIR <- file.path(BASE_DIR, "modelling_script", "08_mediation_outdated")
 OUT_BASE <- file.path(MED_DIR, "outputs", "final_outcome_models")
 dir.create(OUT_BASE, recursive = TRUE, showWarnings = FALSE)
 
@@ -18,6 +18,10 @@ dir.create(OUT_BASE, recursive = TRUE, showWarnings = FALSE)
 # -----------------------------
 INPUT_DIR <- file.path(MED_DIR, "inputs")
 RAW_EXPOSURE_PATH <- file.path(INPUT_DIR, "raw_exposure_universe.csv")
+
+if (!file.exists(RAW_EXPOSURE_PATH)) {
+  stop("Missing raw exposure universe file: ", RAW_EXPOSURE_PATH)
+}
 
 raw_exposure_universe <- read_csv(RAW_EXPOSURE_PATH, show_col_types = FALSE) %>%
   pull(exposure) %>%
@@ -97,6 +101,9 @@ run_final_model <- function(df, analysis_name, stable_links_path, sex_subset = N
   
   selected_exposures <- sets$selected_exposures
   selected_biomarkers <- sets$selected_biomarkers
+  if (length(selected_exposures) == 0 && length(selected_biomarkers) == 0) {
+    stop("No selected exposures or biomarkers available for final model: ", analysis_name)
+  }
   
   confounders <- c("age", "sex", "ethnicity_5cat")
   outcome <- "cvd_incident"

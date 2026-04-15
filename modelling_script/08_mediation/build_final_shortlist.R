@@ -5,8 +5,8 @@ suppressPackageStartupMessages({
   library(tibble)
 })
 
-BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
-MED_DIR  <- file.path(BASE_DIR, "modelling_script", "08_mediation")
+BASE_DIR <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
+MED_DIR  <- file.path(BASE_DIR, "modelling_script", "08_mediation_outdated")
 IN_DIR   <- file.path(MED_DIR, "inputs")
 OUT_DIR  <- file.path(MED_DIR, "outputs")
 SHORT_DIR <- file.path(OUT_DIR, "final_shortlists")
@@ -14,6 +14,10 @@ dir.create(SHORT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 RAW_EXPOSURE_PATH <- file.path(IN_DIR, "raw_exposure_universe.csv")
 
+
+if (!file.exists(RAW_EXPOSURE_PATH)) {
+  stop("Missing raw exposure universe file: ", RAW_EXPOSURE_PATH)
+}
 raw_exposure_universe <- read_csv(RAW_EXPOSURE_PATH, show_col_types = FALSE) %>%
   pull(exposure) %>%
   unique() %>%

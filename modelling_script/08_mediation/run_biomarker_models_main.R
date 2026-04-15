@@ -6,7 +6,7 @@ suppressPackageStartupMessages({
   library(parallelly)
 })
 
-project_root <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+project_root <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 
 get_requested_cores <- function(default = 1L) {
   candidates <- c(
@@ -136,7 +136,7 @@ run_one_biomarker <- function(df, biomarker, predictors, selected_terms, confoun
 
 set.seed(2026)
 
-med_dir <- file.path(project_root, "modelling_script", "08_mediation")
+med_dir <- file.path(project_root, "modelling_script", "08_mediation_outdated")
 inputs_dir <- file.path(med_dir, "inputs")
 out_dir <- file.path(med_dir, "outputs", "main")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -212,6 +212,10 @@ for (i in seq_along(biomarkers)) {
 }
 
 final_res <- bind_rows(results)
+
+if (nrow(final_res) == 0 || !all(c("term_role", "selected", "selection_proportion", "term", "biomarker") %in% names(final_res))) {
+  stop("No valid biomarker stability results were generated for main analysis.")
+}
 
 write_csv(
   final_res,

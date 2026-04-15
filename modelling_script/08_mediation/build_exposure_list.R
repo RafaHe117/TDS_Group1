@@ -3,9 +3,9 @@ suppressPackageStartupMessages({
   library(readr)
 })
 
-project_root <- "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1"
+project_root <- "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
 
-med_dir <- file.path(project_root, "modelling_script", "08_mediation")
+med_dir <- file.path(project_root, "modelling_script", "08_mediation_outdated")
 inputs_dir <- file.path(med_dir, "inputs")
 dir.create(inputs_dir, recursive = TRUE, showWarnings = FALSE)
 
