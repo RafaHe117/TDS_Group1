@@ -1,11 +1,9 @@
 #!/bin/bash
-#$ -N table1_pipeline
-#$ -cwd
-#$ -o modelling_script/01_table1/logs/table1_pipeline.out
-#$ -e modelling_script/01_table1/logs/table1_pipeline.err
-#$ -l h_rt=02:00:00
-#$ -l mem=16G
-#$ -pe smp 1
+#PBS -N table1_pipeline
+#PBS -l walltime=04:00:00
+#PBS -l select=1:ncpus=1:mem=32gb
+#PBS -o /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/modelling_script/01_table1/logs/table1_pipeline.out
+#PBS -e /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/modelling_script/01_table1/logs/table1_pipeline.err
 
 set -euo pipefail
 

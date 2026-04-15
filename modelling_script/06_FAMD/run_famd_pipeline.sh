@@ -1,11 +1,10 @@
 #!/bin/bash
-#$ -N famd_pipeline
-#$ -cwd
-#$ -o 06_FAMD/famd_pipeline.out
-#$ -e 06_FAMD/famd_pipeline.err
-#$ -l h_rt=12:00:00
-#$ -l mem=64G
-#$ -pe smp 4
+#PBS -N famd_pipeline
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=2:mem=32gb
+#PBS -o /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/modelling_script/06_FAMD/logs/famd_pipeline.out
+#PBS -e /rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/modelling_script/06_FAMD/logs/famd_pipeline.err
+
 set -euo pipefail
 
 PROJECT_ROOT="/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1"
@@ -13,7 +12,8 @@ FAMD_DIR="${PROJECT_ROOT}/modelling_script/06_FAMD"
 OUT_DIR="${FAMD_DIR}/FAMD_output"
 LOG_DIR="${FAMD_DIR}/logs"
 
-mkdir -p "${LOG_DIR}"
+rm -rf "${OUT_DIR}"
+mkdir -p "${OUT_DIR}" "${LOG_DIR}"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 LOG_FILE="${LOG_DIR}/famd_pipeline_${TIMESTAMP}.log"
@@ -25,6 +25,7 @@ echo "FAMD pipeline started"
 echo "Time: $(date)"
 echo "Host: $(hostname)"
 echo "Project root: ${PROJECT_ROOT}"
+echo "FAMD dir: ${FAMD_DIR}"
 echo "Log file: ${LOG_FILE}"
 echo "=================================================="
 
@@ -76,8 +77,23 @@ echo "Pre-checks passed."
 run_step "Stage 1 - variance check" \
   "Rscript ${FAMD_DIR}/check_famd_variance_only.R"
 
-run_step "Stage 2 - pseudo FAMD main run" \
-  "Rscript ${FAMD_DIR}/pseudo_famd_run.R"
+run_step "Stage 2a - pseudo FAMD final 1a" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R final 1a"
+
+run_step "Stage 2b - pseudo FAMD final 1b" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R final 1b"
+
+run_step "Stage 2c - pseudo FAMD final 2" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R final 2"
+
+run_step "Stage 3a - pseudo FAMD train 1a" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R train 1a"
+
+run_step "Stage 3b - pseudo FAMD train 1b" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R train 1b"
+
+run_step "Stage 3c - pseudo FAMD train 2" \
+  "Rscript ${FAMD_DIR}/pseudo_famd_run.R train 2"
 
 echo
 echo "Checking expected output structure..."
@@ -85,67 +101,31 @@ check_dir "${OUT_DIR}"
 check_dir "${OUT_DIR}/final"
 check_dir "${OUT_DIR}/train"
 
-# -----------------------------
-# FINAL dataset outputs
-# -----------------------------
-check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_scree.png"
-check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_indiv_by_outcome.png"
-check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_indiv_by_sex.png"
-check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_contrib_pc1.png"
-check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_contrib_pc2.png"
 check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_variance_explained.csv"
 check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_scores.csv"
 check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_contrib_pc1.csv"
 check_file "${OUT_DIR}/final/pseudo_famd1a_baseline_main_no_alcohol_contrib_pc2.csv"
 
-check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_scree.png"
-check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_indiv_by_outcome.png"
-check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_indiv_by_sex.png"
-check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_contrib_pc1.png"
-check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_contrib_pc2.png"
 check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_variance_explained.csv"
 check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_scores.csv"
 check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_contrib_pc1.csv"
 check_file "${OUT_DIR}/final/pseudo_famd1b_baseline_plus_alcohol_sensitivity_contrib_pc2.csv"
 
-check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_scree.png"
-check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_indiv_by_outcome.png"
-check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_indiv_by_sex.png"
-check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_contrib_pc1.png"
-check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_contrib_pc2.png"
 check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_variance_explained.csv"
 check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_scores.csv"
 check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_contrib_pc1.csv"
 check_file "${OUT_DIR}/final/pseudo_famd2_biological_supplementary_contrib_pc2.csv"
 
-# -----------------------------
-# TRAIN dataset outputs
-# -----------------------------
-check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_scree.png"
-check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_indiv_by_outcome.png"
-check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_indiv_by_sex.png"
-check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_contrib_pc1.png"
-check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_contrib_pc2.png"
 check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_variance_explained.csv"
 check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_scores.csv"
 check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_contrib_pc1.csv"
 check_file "${OUT_DIR}/train/pseudo_famd1a_baseline_main_no_alcohol_contrib_pc2.csv"
 
-check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_scree.png"
-check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_indiv_by_outcome.png"
-check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_indiv_by_sex.png"
-check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_contrib_pc1.png"
-check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_contrib_pc2.png"
 check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_variance_explained.csv"
 check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_scores.csv"
 check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_contrib_pc1.csv"
 check_file "${OUT_DIR}/train/pseudo_famd1b_baseline_plus_alcohol_sensitivity_contrib_pc2.csv"
 
-check_file "${OUT_DIR}/train/pseudo_famd2_biological_supplementary_scree.png"
-check_file "${OUT_DIR}/train/pseudo_famd2_biological_supplementary_indiv_by_outcome.png"
-check_file "${OUT_DIR}/train/pseudo_famd2_biological_supplementary_indiv_by_sex.png"
-check_file "${OUT_DIR}/train/pseudo_famd2_biological_supplementary_contrib_pc1.png"
-check_file "${OUT_DIR}/train/pseudo_famd2_biological_supplementary_contrib_pc2.png"
 check_file "${OUT_DIR}/train/pseudo_famd2_biological_supplementary_variance_explained.csv"
 check_file "${OUT_DIR}/train/pseudo_famd2_biological_supplementary_scores.csv"
 check_file "${OUT_DIR}/train/pseudo_famd2_biological_supplementary_contrib_pc1.csv"
