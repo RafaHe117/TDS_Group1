@@ -1,15 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
-#!/usr/bin/env python
-# coding: utf-8
-
-
-# get_ipython().run_line_magic('pip', 'install pyreadr pandas numpy scikit-learn matplotlib shap xgboost catboost --target=$HOME/my_python_libs')
-
 """
 Prerequisites:
 Ensure the following packages are installed in your environment:
@@ -48,9 +39,9 @@ from IPython.display import display
 # ==========================================
 # 1. DATA LOADING & FILTERING
 # ==========================================
-DATA_PATH = "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/split_imputed_data/ukb_G1_train_imputed.rds"
-EXPOSURE_PATH = "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/modelling_script/09_stability_analysis/subsample_lasso/exposure_list.csv"
-TEST_PATH = "/rds/general/project/hda_25-26/live/TDS/fg520/TDS_Group1/split_imputed_data/ukb_G1_test_imputed.rds"
+DATA_PATH = "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/split_imputed_data/ukb_G1_train_imputed.rds"
+EXPOSURE_PATH = "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/modelling_script/09_stability_analysis/subsample_lasso/exposure_list.csv"
+TEST_PATH = "/rds/general/project/hda_25-26/live/TDS/anw16/TDS_Group1/split_imputed_data/ukb_G1_test_imputed.rds"
 
 # Load data
 train_data = pyreadr.read_r(DATA_PATH)[None]
@@ -126,7 +117,7 @@ def train_xgboost(X_tr, y_tr, model_name):
     )
 
     xgb_grid.fit(X_tr, y_tr)
-    print(f"{model_name} Best CV ROC-AUC: {xgb_grid.best_score_:.4f}")
+    print(f"✅ {model_name} Best CV ROC-AUC: {xgb_grid.best_score_:.4f}")
     return xgb_grid.best_estimator_
 
 def evaluate_performance(model, X_te, y_te, name):
@@ -242,7 +233,7 @@ def compute_aggregated_feature_importance(fitted_pipeline, X_test_original, y_te
     if shap_successful:
         shap_grouped_filtered = shap_grouped_df[features_to_keep]
         X_test_display = X_test_original[features_to_keep].copy()
-
+        
         for col in X_test_display.select_dtypes(exclude=['number']).columns:
             X_test_display[col] = X_test_display[col].astype('category').cat.codes
 
@@ -268,7 +259,7 @@ def plot_shap_waterfall(fitted_pipeline, X_test_original, instance_index=0, mode
     model = fitted_pipeline.named_steps["model"]
     transformed_features = ct.get_feature_names_out()
     X_test_t = ct.transform(X_test_original)
-
+    
     explainer = shap.Explainer(model)
     shap_values = explainer(X_test_t)
 
@@ -296,7 +287,7 @@ def compute_fairness_metrics(model, X_te, y_te, sensitive_column, reference_grou
 
     ref_rate = group_rates[reference_group]
     fairness_results = []
-
+    
     for group, rate in group_rates.items():
         spd = rate - ref_rate
         dir_ratio = rate / ref_rate if ref_rate > 0 else np.nan
@@ -312,7 +303,7 @@ def compute_fairness_metrics(model, X_te, y_te, sensitive_column, reference_grou
 
 def plot_fairness_metrics(df, attribute, title_suffix, model_name):
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
+    
     axes[0].barh(df['Group'], df['Stat. Parity Diff (SPD)'], color='salmon')
     axes[0].axvline(0, color='black', linestyle='--')
     axes[0].set_title(f'Statistical Parity Difference\n(Ideal = 0) - {title_suffix}')
@@ -330,7 +321,7 @@ def plot_fairness_metrics(df, attribute, title_suffix, model_name):
 # 3. MAIN EXECUTION PIPELINE
 # ==========================================
 if __name__ == "__main__":
-
+    
     models = {}
     results = []
     cm_export_data = {}
@@ -360,11 +351,11 @@ if __name__ == "__main__":
     # Export Standard Metrics
     pd.DataFrame(results).set_index("Model").to_excel("model_performance_table.xlsx") 
     print("Table saved to 'model_performance_table.xlsx'")
-
+    
     with open("confusion_matrices.json", "w") as f:
         json.dump(cm_export_data, f, indent=4)
     print("Confusion matrices saved to 'confusion_matrices.json'")
-
+    
     with open("roc_curve_data.json", "w") as f:
         json.dump(roc_export_data, f, indent=4)
     print("ROC curve coordinates securely saved to 'roc_curve_data.json'")
@@ -376,7 +367,7 @@ if __name__ == "__main__":
         print(f"\n{'='*60}\nEVALUATING FEATURE IMPORTANCE: {name.upper()}\n{'='*60}")
         aggregated_imp_df = compute_aggregated_feature_importance(fitted_pipeline, X_te_orig, y_te, model_name=name)
         all_importance_results[name] = aggregated_imp_df
-
+        
         excel_filename = f"{name}_feature_importance_ranked.xlsx"
         aggregated_imp_df.to_excel(excel_filename, index=False)
         print(f"Data exported successfully to: {excel_filename}")
@@ -394,11 +385,11 @@ if __name__ == "__main__":
 
         print(f"\n{'='*60}\nFAIRNESS METRICS: {name.upper()}\n{'='*60}")
         fairness_ethnicity = compute_fairness_metrics(model, X_te, y_te, 'ethnicity_5cat', most_frequent_ethnicity)
-
+        
         excel_filename = f"{name.replace(' ', '_').lower()}_ethnicity_fairness_metrics.xlsx"
         fairness_ethnicity.to_excel(excel_filename, index=False)
         display(fairness_ethnicity)
-
+        
         plot_fairness_metrics(fairness_ethnicity, 'ethnicity_5cat', f'Ethnicity (Ref: {most_frequent_ethnicity}) | Model: {name}', name)
 
     print("\n--- Fairness Analysis: Sex (Overall Model) ---")
