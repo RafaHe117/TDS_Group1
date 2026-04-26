@@ -446,13 +446,41 @@ run_stratified_stability <- function(train_sub, test_sub, sex_label, preds, conf
   )
   
   if (!is.null(test_prob) && !anyNA(test_prob)) {
-    roc_obj <- roc(y_te, test_prob, quiet = TRUE)
-    
-    roc_df <- data.frame(
-      specificity = roc_obj$specificities,
-      sensitivity = roc_obj$sensitivities
-    ) |>
-      mutate(fpr = 1 - specificity)
+  roc_obj <- roc(y_te, test_prob, quiet = TRUE)
+  
+  # Save ROC raw data
+  roc_raw_df <- data.frame(
+    threshold   = roc_obj$thresholds,
+    sensitivity = roc_obj$sensitivities,
+    specificity = roc_obj$specificities,
+    fpr         = 1 - roc_obj$specificities,
+    tpr         = roc_obj$sensitivities,
+    sex_group   = sex_label,
+    stringsAsFactors = FALSE
+  )
+  
+  write.csv(
+    roc_raw_df,
+    file.path(out_dir, paste0("roc_curve_raw_data_", tolower(sex_label), ".csv")),
+    row.names = FALSE
+  )
+  
+  # Save prediction inputs
+  write.csv(
+    data.frame(
+      y_true = y_te,
+      y_prob = test_prob,
+      sex_group = sex_label
+    ),
+    file.path(out_dir, paste0("roc_input_predictions_", tolower(sex_label), ".csv")),
+    row.names = FALSE
+  )
+  
+  roc_df <- data.frame(
+    specificity = roc_obj$specificities,
+    sensitivity = roc_obj$sensitivities
+  ) |>
+    dplyr::mutate(fpr = 1 - specificity)
     
     p_roc <- ggplot(roc_df, aes(x = fpr, y = sensitivity)) +
       geom_path(linewidth = 1.2, lineend = "round") +
